@@ -2,13 +2,13 @@
  * 黑马记账 —— 主程序文件
  *
  * 用大白话解释：这个文件是软件的「总开关」。
- * 负责：启动软件、创建一个窗口、把界面（src/index.html）装进窗口里。
- *
- * 目前只有"开窗口"这一件事，后续阶段会在这里加数据库等后台能力。
+ * 负责：启动软件、创建窗口、把界面（src/index.html）装进窗口里，
+ * 以及替界面提供「数据库服务」（记账、查账都通过这里完成）。
  */
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const db = require('./db'); // 数据库管家（见 db.js）
 
 function createWindow() {
   // 创建一个窗口（1000×700，最小 800×600）
@@ -33,8 +33,24 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
 }
 
-// 软件启动就绪后，创建窗口
+// 打开账本：文件放在系统「用户数据文件夹」里，随软件走
+function setupDatabase() {
+  const dbPath = path.join(app.getPath('userData'), 'blackhorse.db');
+  db.init(dbPath);
+  console.log('📒 账本位置：', dbPath);
+}
+
+// 登记「界面能调用的数据库服务」（界面通过 preload 安全地来调用）
+function registerIpcHandlers() {
+  ipcMain.handle('db:addRecord', (_event, record) => db.addRecord(record));
+  ipcMain.handle('db:getRecentRecords', (_event, limit) => db.getRecentRecords(limit || 10));
+  ipcMain.handle('db:getMonthlySummary', (_event, { year, month }) => db.getMonthlySummary(year, month));
+}
+
+// 软件启动就绪后：先打开账本、登记服务，再创建窗口
 app.whenReady().then(() => {
+  setupDatabase();
+  registerIpcHandlers();
   createWindow();
 
   // Mac 特有：点了 Dock 图标但没窗口时，重新开一个窗口
@@ -47,3 +63,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+// 软件退出前，把账本文件干净地关上，确保数据完整保存
+app.on('before-quit', () => db.close());

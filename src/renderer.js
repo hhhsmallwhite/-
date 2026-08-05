@@ -188,7 +188,7 @@ function showToast(text) {
   toast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
 }
 
-document.getElementById('saveBtn').addEventListener('click', () => {
+document.getElementById('saveBtn').addEventListener('click', async () => {
   const amount = parseFloat(document.getElementById('amountInput').value);
 
   // 简单检查：金额必须是大于 0 的数字
@@ -197,16 +197,28 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     return;
   }
 
-  // —— 目前只到界面这一步。保存到数据库将在「阶段2」接入 ——
-  const date = document.getElementById('dateInput').value || '今天';
-  const note = document.getElementById('noteInput').value.trim() || '（无备注）';
+  // 金额转成「分」（整数）再存，避免小数点误差：12.5 元 → 1250 分
+  const record = {
+    type: currentType,
+    amountCents: Math.round(amount * 100),
+    categoryMain: currentMain,
+    categorySub: currentSub,
+    note: document.getElementById('noteInput').value.trim(),
+    date: document.getElementById('dateInput').value || todayStr(),
+    createdAt: Date.now()
+  };
+
   const typeText = currentType === 'expense' ? '支出' : '收入';
-  const record = { type: currentType, amount, main: currentMain, sub: currentSub, date, note };
 
-  // 临时在开发者控制台打印出来，方便确认界面逻辑正确
-  console.log('即将保存的记录：', record);
-
-  showToast(`✓ ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）—— 保存功能将在下一阶段接入`);
+  try {
+    await window.blackhorse.addRecord(record);
+    showToast(`✓ 已保存 ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）`);
+    closeModal();
+    refreshOverview();
+  } catch (e) {
+    console.error('保存失败：', e);
+    showToast('保存失败，请稍后重试');
+  }
 });
 
 /* ==================== 重置表单 ==================== */
@@ -225,20 +237,73 @@ function todayStr() {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-/* ==================== 概览页初始化 ==================== */
+/* ==================== 概览页：加载真实数据 ==================== */
 
-function initOverview() {
+async function refreshOverview() {
   const now = new Date();
-  const month = `${now.getFullYear()}年${now.getMonth() + 1}月`;
-  document.getElementById('overviewMonth').textContent = month;
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  document.getElementById('overviewMonth').textContent = `${year}年${month}月`;
 
-  // 本月收支数据在「阶段2」接入数据库后才会真实显示，目前显示 0.00
-  document.getElementById('statExpense').textContent = '0.00';
-  document.getElementById('statIncome').textContent = '0.00';
-  document.getElementById('statBalance').textContent = '0.00';
+  try {
+    // 本月收支汇总（从数据库取真实数据）
+    const s = await window.blackhorse.getMonthlySummary(year, month);
+    document.getElementById('statExpense').textContent = fmtMoney(s.expense);
+    document.getElementById('statIncome').textContent = fmtMoney(s.income);
+    document.getElementById('statBalance').textContent = fmtMoney(s.balance);
+
+    // 最近记的几笔
+    const records = await window.blackhorse.getRecentRecords(5);
+    renderRecentList(records);
+  } catch (e) {
+    console.error('加载概览数据失败：', e);
+  }
+}
+
+// 把「分」换成带两位小数的「元」
+function fmtMoney(cents) {
+  return (cents / 100).toFixed(2);
+}
+
+// 渲染「最近记录」列表
+function renderRecentList(records) {
+  const emptyEl = document.getElementById('recentEmpty');
+  const listEl = document.getElementById('recentList');
+
+  // 一笔都没有：显示"还没有任何记录"的提示
+  if (!records || records.length === 0) {
+    emptyEl.classList.remove('hidden');
+    listEl.classList.add('hidden');
+    return;
+  }
+
+  emptyEl.classList.add('hidden');
+  listEl.classList.remove('hidden');
+  listEl.innerHTML = records.map(r => {
+    const isExpense = r.type === 'expense';
+    const sign = isExpense ? '-' : '+';
+    return `
+      <li class="record-item">
+        <span class="record-icon">${CATEGORY_ICONS[r.categoryMain] || ''}</span>
+        <div class="record-main">
+          <div class="record-cat">${escapeHtml(r.categoryMain)} · ${escapeHtml(r.categorySub)}</div>
+          <div class="record-note">${escapeHtml(r.note)}</div>
+        </div>
+        <span class="record-date">${r.date.slice(5).replace('-', '/')}</span>
+        <span class="record-amount ${isExpense ? 'expense' : 'income'}">${sign}¥${r.amount.toFixed(2)}</span>
+      </li>`;
+  }).join('');
+}
+
+// 转义用户填的内容，防止奇怪的符号破坏界面
+function escapeHtml(str) {
+  const s = String(str || '');
+  return s.replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
 }
 
 /* ==================== 启动 ==================== */
 
-initOverview();
+refreshOverview();
 setType('expense');
