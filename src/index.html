@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>黑马记账</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- ===== 左侧导航栏 ===== -->
+    <aside class="sidebar">
+      <div class="logo">
+        <span class="logo-mark">🐴</span>
+        <span class="logo-text">黑马记账</span>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="overview">
+          <span class="nav-icon">📊</span><span>概览</span>
+        </button>
+        <button class="nav-item" data-page="bills">
+          <span class="nav-icon">📒</span><span>账单</span>
+        </button>
+        <button class="nav-item" data-page="stats">
+          <span class="nav-icon">📈</span><span>统计</span>
+        </button>
+        <button class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙️</span><span>设置</span>
+        </button>
+      </nav>
+
+      <button class="add-btn" id="openAddBtn">＋ 记一笔</button>
+    </aside>
+
+    <!-- ===== 右侧内容区 ===== -->
+    <main class="content">
+
+      <!-- 概览页 -->
+      <section class="page active" id="page-overview">
+        <header class="page-header">
+          <h1>概览</h1>
+          <p class="page-sub" id="overviewMonth"></p>
+        </header>
+
+        <div class="stat-cards">
+          <div class="stat-card expense">
+            <div class="stat-label">本月支出</div>
+            <div class="stat-value">¥<span id="statExpense">0.00</span></div>
+          </div>
+          <div class="stat-card income">
+            <div class="stat-label">本月收入</div>
+            <div class="stat-value">¥<span id="statIncome">0.00</span></div>
+          </div>
+          <div class="stat-card balance">
+            <div class="stat-label">本月结余</div>
+            <div class="stat-value">¥<span id="statBalance">0.00</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>最近记录</h2>
+          <div class="empty-hint" id="recentEmpty">
+            <p>还没有任何记录</p>
+            <p class="hint-sub">点击左侧「＋ 记一笔」，记录你的第一笔花销吧！</p>
+          </div>
+          <ul class="record-list hidden" id="recentList"></ul>
+        </div>
+      </section>
+
+      <!-- 账单页 -->
+      <section class="page" id="page-bills">
+        <header class="page-header">
+          <h1>账单</h1>
+          <p class="page-sub">查看每一笔记录</p>
+        </header>
+        <div class="panel developing">
+          <h2>📒 账单页面 · 开发中</h2>
+          <p>本页将在「阶段 3」实现，届时可以按月查看、筛选、修改每一笔记录。</p>
+        </div>
+      </section>
+
+      <!-- 统计页 -->
+      <section class="page" id="page-stats">
+        <header class="page-header">
+          <h1>统计</h1>
+          <p class="page-sub">看看钱都花到哪里去了</p>
+        </header>
+        <div class="panel developing">
+          <h2>📈 统计页面 · 开发中</h2>
+          <p>本页将在「阶段 3」实现，届时会展示分类占比图、支出趋势图。</p>
+        </div>
+      </section>
+
+      <!-- 设置页 -->
+      <section class="page" id="page-settings">
+        <header class="page-header">
+          <h1>设置</h1>
+          <p class="page-sub">数据备份与分类管理</p>
+        </header>
+        <div class="panel developing">
+          <h2>⚙️ 设置页面 · 开发中</h2>
+          <p>本页将在「阶段 4」实现，届时提供数据导出 / 备份功能。</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===== 记一笔弹窗 ===== -->
+  <div class="modal-overlay hidden" id="addModal">
+    <div class="modal">
+
+      <div class="modal-header">
+        <div class="type-switch">
+          <button class="type-btn expense active" id="typeExpense">支出</button>
+          <button class="type-btn income" id="typeIncome">收入</button>
+        </div>
+        <button class="modal-close" id="closeAddModal" title="关闭">✕</button>
+      </div>
+
+      <div class="amount-row">
+        <span class="yuan">¥</span>
+        <input class="amount-input" id="amountInput" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+      </div>
+
+      <div class="category-area">
+        <div class="cat-label">选择分类</div>
+        <div class="cat-tabs" id="catTabs"></div>
+        <div class="cat-grid" id="catGrid"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-item">
+          <label for="dateInput">日期</label>
+          <input type="date" id="dateInput">
+        </div>
+        <div class="form-item grow">
+          <label for="noteInput">备注</label>
+          <input type="text" id="noteInput" placeholder="选填，写点什么..." autocomplete="off">
+        </div>
+      </div>
+
+      <button class="save-btn" id="saveBtn">保存</button>
+    </div>
+  </div>
+
+  <!-- 轻提示（toast） -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

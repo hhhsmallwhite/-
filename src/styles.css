@@ -1,0 +1,533 @@
+/* ============================================================
+   黑马记账 —— 界面样式
+   设计思路：简洁清爽，白底 + 绿色主色调
+   ============================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --green: #16a34a;
+  --green-dark: #15803d;
+  --green-light: #dcfce7;
+  --red: #ef4444;
+  --red-light: #fee2e2;
+  --bg: #f5f7f9;
+  --panel: #ffffff;
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --sidebar-bg: #16212f;
+  --sidebar-text: #cbd5e1;
+}
+
+html, body {
+  height: 100%;
+  font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ============ 左侧导航栏 ============ */
+.sidebar {
+  width: 190px;
+  min-width: 190px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 20px;
+}
+
+.logo-mark {
+  font-size: 26px;
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2px;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: none;
+  background: transparent;
+  color: var(--sidebar-text);
+  font-size: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s, color .15s;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+}
+
+.nav-item.active {
+  background: var(--green);
+  color: #fff;
+}
+
+.nav-icon {
+  font-size: 17px;
+  width: 22px;
+  text-align: center;
+}
+
+.add-btn {
+  margin-top: 16px;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: var(--green);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.add-btn:hover {
+  background: var(--green-dark);
+}
+
+/* ============ 右侧内容区 ============ */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.page {
+  display: none;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.page.active {
+  display: block;
+}
+
+.page-header {
+  margin-bottom: 22px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.page-sub {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 三个统计卡片 */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.stat-card {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+  border-top: 4px solid var(--border);
+}
+
+.stat-card.expense { border-top-color: var(--red); }
+.stat-card.income { border-top-color: var(--green); }
+.stat-card.balance { border-top-color: #3b82f6; }
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.stat-card.expense .stat-value { color: var(--red); }
+.stat-card.income .stat-value { color: var(--green-dark); }
+.stat-card.balance .stat-value { color: #2563eb; }
+
+/* 通用面板 */
+.panel {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+.panel h2 {
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+.panel.developing {
+  text-align: center;
+  padding: 46px 22px;
+  color: var(--text-muted);
+}
+
+.panel.developing h2 {
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.panel.developing p {
+  font-size: 14px;
+}
+
+.empty-hint {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 30px 0;
+  font-size: 15px;
+}
+
+.hint-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* 最近记录列表 */
+.record-list {
+  list-style: none;
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.record-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: var(--green-light);
+  margin-right: 12px;
+}
+
+.record-main {
+  flex: 1;
+}
+
+.record-cat {
+  font-size: 15px;
+}
+
+.record-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.record-date {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-right: 14px;
+}
+
+.record-amount {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.record-amount.expense { color: var(--red); }
+.record-amount.income { color: var(--green-dark); }
+
+/* ============ 记一笔弹窗 ============ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 18px;
+  width: 440px;
+  max-width: 94vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 22px 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .2);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.type-switch {
+  display: flex;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.type-btn {
+  border: none;
+  padding: 8px 26px;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.type-btn.active {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+  font-weight: 600;
+}
+
+.type-btn.expense.active { color: var(--red); }
+.type-btn.income.active { color: var(--green-dark); }
+
+.modal-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.modal-close:hover {
+  background: var(--bg);
+}
+
+/* 金额输入 */
+.amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0 6px;
+}
+
+.yuan {
+  font-size: 30px;
+  font-weight: 700;
+  margin-right: 6px;
+  color: var(--text);
+}
+
+.amount-input {
+  border: none;
+  outline: none;
+  font-size: 40px;
+  font-weight: 700;
+  width: 230px;
+  text-align: center;
+  color: var(--text);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.amount-input:focus {
+  border-bottom-color: var(--green);
+}
+
+.amount-input::placeholder {
+  color: #d1d5db;
+}
+
+/* 分类选择 */
+.category-area {
+  margin-top: 10px;
+}
+
+.cat-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.cat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cat-tab {
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  transition: all .15s;
+}
+
+.cat-tab:hover {
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+
+.cat-tab.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.cat-cell {
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 10px 4px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text);
+  transition: all .15s;
+}
+
+.cat-cell:hover {
+  border-color: var(--green);
+}
+
+.cat-cell.active {
+  background: var(--green-light);
+  border-color: var(--green);
+  color: var(--green-dark);
+  font-weight: 600;
+}
+
+/* 日期与备注 */
+.form-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-item.grow {
+  flex: 1;
+}
+
+.form-item label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.form-item input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  outline: none;
+  color: var(--text);
+  background: #fff;
+}
+
+.form-item input:focus {
+  border-color: var(--green);
+}
+
+/* 保存按钮 */
+.save-btn {
+  width: 100%;
+  margin-top: 18px;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: var(--green);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.save-btn:hover {
+  background: var(--green-dark);
+}
+
+/* ============ 轻提示 toast ============ */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .2);
+  z-index: 200;
+}
+
+.hidden {
+  display: none !important;
+}

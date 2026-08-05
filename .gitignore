@@ -1,0 +1,19 @@
+# 依赖包（npm 自动下载，无需存档，可随时重新下载）
+node_modules/
+
+# 打包输出目录
+dist/
+release/
+out/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 本地数据库文件（用户数据保存在系统用户文件夹，不在项目里）
+*.db
+*.sqlite
