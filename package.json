@@ -5,8 +5,8 @@
   "description": "黑马记账 —— 个人记账工具（Windows / Mac）",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron ."
+    "start": "node start.js",
+    "dev": "node start.js"
   },
   "keywords": [
     "记账",
