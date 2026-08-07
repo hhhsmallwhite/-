@@ -1,5 +1,5 @@
 /**
- * 黑马记账 —— 数据库管家
+ * 天天记账 —— 数据库管家
  *
  * 用大白话解释：这个文件是软件的「账本」。
  * 它负责把每一笔账安全地存进电脑，以及按需把账取出来给界面用。
@@ -156,6 +156,12 @@ function getDateRange() {
   return { minDate: row.minDate, maxDate: row.maxDate };
 }
 
+/** 取出全部账目（导出备份用），按日期从旧到新排 */
+function getAllRecords() {
+  const rows = db.prepare('SELECT * FROM records ORDER BY date ASC, created_at ASC, id ASC').all();
+  return rows.map(toRecord);
+}
+
 /** 修改一笔账（按编号 id，改成 record 里的新内容），返回改好的完整记录 */
 function updateRecord(id, record) {
   db.prepare(`
@@ -202,6 +208,6 @@ function toRecord(row) {
 module.exports = {
   init, close,
   addRecord, getRecordById, getRecentRecords, getMonthlySummary,
-  getRecordsByMonth, getCategoryTotals, getMonthlyTrendRange, getDateRange,
+  getRecordsByMonth, getCategoryTotals, getMonthlyTrendRange, getDateRange, getAllRecords,
   updateRecord, deleteRecord
 };

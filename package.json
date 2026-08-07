@@ -1,12 +1,13 @@
 {
-  "name": "heimajizhang",
-  "productName": "黑马记账",
+  "name": "tiantian-jizhang",
+  "productName": "天天记账",
   "version": "0.1.0",
-  "description": "黑马记账 —— 个人记账工具（Windows / Mac）",
+  "description": "天天记账 —— 个人记账工具（Windows / Mac）",
   "main": "main.js",
   "scripts": {
     "start": "node start.js",
-    "dev": "node start.js"
+    "dev": "node start.js",
+    "dist": "electron-builder"
   },
   "keywords": [
     "记账",
@@ -15,9 +16,44 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3"
+  },
+  "build": {
+    "appId": "com.tiantian.jizhang",
+    "productName": "天天记账",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "db.js",
+      "preload.js",
+      "start.js",
+      "src/**/*"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "天天记账"
+    }
   }
 }

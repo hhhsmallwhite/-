@@ -1,5 +1,5 @@
 /* ============================================================
-   黑马记账 —— 界面样式
+   天天记账 —— 界面样式
    设计风格：清新简约 · 白底 + 翠绿主色 · 扁平 + 细腻层次
    ============================================================ */
 
@@ -414,6 +414,60 @@ input, textarea { caret-color: var(--green); }
   color: var(--text-muted);
   font-size: 14px;
 }
+
+/* ============ 设置页 · 数据备份 ============ */
+.card {
+  background: var(--panel);
+  border-radius: var(--r-lg);
+  padding: 28px 28px 30px;
+  box-shadow: var(--shadow-sm);
+  max-width: 640px;
+}
+
+.card-title { font-size: 17px; }
+
+.card-desc {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.export-btn {
+  margin-top: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--green), var(--green-deep));
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: filter .15s, transform .15s, box-shadow .15s;
+}
+
+.export-btn:hover {
+  filter: brightness(1.06);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.export-btn:active { transform: scale(.98); }
+
+.export-status {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.export-status.ok { color: var(--green-ink); }
+.export-status.err { color: var(--expense-deep); }
 
 /* ============ 记一笔弹窗 ============ */
 .modal-overlay {

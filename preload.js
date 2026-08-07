@@ -1,5 +1,5 @@
 /**
- * 黑马记账 —— 接线文件（preload）
+ * 天天记账 —— 接线文件（preload）
  *
  * 用大白话解释：软件的「界面」和「后台数据」中间隔着一道安全门。
  * 这个文件负责在这道门上开几个安全的小窗口，
@@ -8,7 +8,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('blackhorse', {
+contextBridge.exposeInMainWorld('tiantian', {
   appVersion: '0.1.0',
   platform: process.platform, // 'win32' 是 Windows，'darwin' 是 Mac
 
@@ -31,5 +31,8 @@ contextBridge.exposeInMainWorld('blackhorse', {
   // 修改一笔账
   updateRecord: (id, record) => ipcRenderer.invoke('db:updateRecord', { id, record }),
   // 删除一笔账
-  deleteRecord: (id) => ipcRenderer.invoke('db:deleteRecord', id)
+  deleteRecord: (id) => ipcRenderer.invoke('db:deleteRecord', id),
+  // —— 阶段4 新增（导出备份）——
+  // 把全部账目导出成 CSV 文件（会弹出「保存位置」窗口），返回 { ok, path, count } 或 { ok:false, canceled }
+  exportCsv: () => ipcRenderer.invoke('export:exportCsv')
 });

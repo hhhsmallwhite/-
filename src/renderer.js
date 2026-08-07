@@ -1,5 +1,5 @@
 /**
- * 黑马记账 —— 界面逻辑
+ * 天天记账 —— 界面逻辑
  *
  * 用大白话解释：这个文件负责界面上所有"点一下会发生什么"的事情。
  * 比如：点左侧菜单切换页面、打开/关闭记账弹窗、选择分类等。
@@ -247,11 +247,11 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   try {
     if (editingId !== null) {
       // 正在修改某笔账：按编号更新
-      await window.blackhorse.updateRecord(editingId, record);
+      await window.tiantian.updateRecord(editingId, record);
       showToast(`✓ 已修改 ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）`);
     } else {
       // 新增一笔
-      await window.blackhorse.addRecord(record);
+      await window.tiantian.addRecord(record);
       showToast(`✓ 已保存 ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）`);
     }
     closeModal();
@@ -288,13 +288,13 @@ async function refreshOverview() {
 
   try {
     // 本月收支汇总（从数据库取真实数据）
-    const s = await window.blackhorse.getMonthlySummary(year, month);
+    const s = await window.tiantian.getMonthlySummary(year, month);
     document.getElementById('statExpense').textContent = fmtMoney(s.expense);
     document.getElementById('statIncome').textContent = fmtMoney(s.income);
     document.getElementById('statBalance').textContent = fmtMoney(s.balance);
 
     // 最近记的几笔
-    const records = await window.blackhorse.getRecentRecords(5);
+    const records = await window.tiantian.getRecentRecords(5);
     renderRecentList(records);
   } catch (e) {
     console.error('加载概览数据失败：', e);
@@ -399,7 +399,7 @@ async function loadBills() {
   document.getElementById('billMonthLabel').textContent = `${billsYear}年${billsMonth}月`;
   updateMonthNavDisabled();
   try {
-    billsRecords = await window.blackhorse.getRecordsByMonth(billsYear, billsMonth);
+    billsRecords = await window.tiantian.getRecordsByMonth(billsYear, billsMonth);
     buildBillCatFilter();
     renderBills();
   } catch (e) {
@@ -521,7 +521,7 @@ async function deleteBill(record) {
   const ok = confirm(`确定删除这笔账吗？\n${record.categoryMain}·${record.categorySub} ${money}\n删除后无法恢复。`);
   if (!ok) return;
   try {
-    await window.blackhorse.deleteRecord(record.id);
+    await window.tiantian.deleteRecord(record.id);
     showToast('已删除这笔账');
     refreshAll();
   } catch (e) {
@@ -569,13 +569,13 @@ async function loadStats() {
   document.getElementById('statsMonthLabel').textContent = `${statsYear}年${statsMonth}月`;
   updateMonthNavDisabled();
   try {
-    const s = await window.blackhorse.getMonthlySummary(statsYear, statsMonth);
+    const s = await window.tiantian.getMonthlySummary(statsYear, statsMonth);
     document.getElementById('statsExpense').textContent = fmtMoney(s.expense);
     document.getElementById('statsIncome').textContent = fmtMoney(s.income);
     document.getElementById('statsBalance').textContent = fmtMoney(s.balance);
 
     // 支出分类占比
-    const cats = await window.blackhorse.getCategoryTotals(statsYear, statsMonth, 'expense');
+    const cats = await window.tiantian.getCategoryTotals(statsYear, statsMonth, 'expense');
     renderDonut(document.getElementById('statsDonut'), cats, {
       centerLabel: '总支出',
       emptyTitle: '本月还没有支出',
@@ -583,7 +583,7 @@ async function loadStats() {
     });
 
     // 收入分类占比
-    const incCats = await window.blackhorse.getCategoryTotals(statsYear, statsMonth, 'income');
+    const incCats = await window.tiantian.getCategoryTotals(statsYear, statsMonth, 'income');
     renderDonut(document.getElementById('statsDonutIncome'), incCats, {
       centerLabel: '总收入',
       emptyTitle: '本月还没有收入',
@@ -765,7 +765,7 @@ async function renderTrendRange() {
   // 起点晚于终点就交换，保证区间有效
   if (s.year * 12 + s.month > e.year * 12 + e.month) { const t = s; s = e; e = t; }
   try {
-    const list = await window.blackhorse.getMonthlyTrend(s.year, s.month, e.year, e.month);
+    const list = await window.tiantian.getMonthlyTrend(s.year, s.month, e.year, e.month);
     renderTrend(el, list);
   } catch (err) {
     console.error('加载趋势失败：', err);
@@ -776,7 +776,7 @@ async function renderTrendRange() {
 async function setTrendQuick(months) {
   const c = currentYm();
   if (months === 'all') {
-    const range = await window.blackhorse.getDateRange();
+    const range = await window.tiantian.getDateRange();
     if (range) {
       const s = { year: Number(range.minDate.slice(0, 4)), month: Number(range.minDate.slice(5, 7)) };
       document.getElementById('trendStart').value = ymToStr(s.year, s.month);
@@ -891,6 +891,30 @@ document.getElementById('trendStart').addEventListener('change', () => {
 document.getElementById('trendEnd').addEventListener('change', () => {
   document.querySelectorAll('.range-pill').forEach(p => p.classList.remove('active'));
   renderTrendRange();
+});
+
+/* ==================== 数据导出（阶段4） ==================== */
+
+// 点「导出 CSV 备份」：请软件把账生成文件，并弹窗让用户选保存位置
+document.getElementById('exportCsvBtn').addEventListener('click', async () => {
+  const status = document.getElementById('exportStatus');
+  status.className = 'export-status';
+  status.textContent = '正在整理账目……';
+  try {
+    const res = await window.tiantian.exportCsv();
+    if (res.ok) {
+      status.textContent = `✅ 已导出 ${res.count} 笔账，文件保存在：${res.path}`;
+      status.classList.add('ok');
+    } else if (res.canceled) {
+      status.textContent = '已取消导出，账目没有动。';
+    } else {
+      status.textContent = `❌ 导出失败：${res.error || '未知原因'}`;
+      status.classList.add('err');
+    }
+  } catch (e) {
+    status.textContent = `❌ 导出出错：${e.message}`;
+    status.classList.add('err');
+  }
 });
 
 /* ==================== 启动 ==================== */
