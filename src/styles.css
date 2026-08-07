@@ -453,7 +453,7 @@ input, textarea { caret-color: var(--green); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 
 /* 收支切换（胶囊分段控件） */
@@ -680,6 +680,232 @@ input, textarea { caret-color: var(--green); }
 }
 
 .save-btn:active { transform: scale(.98); }
+
+/* ============ 弹窗标题 ============ */
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.type-switch { width: 100%; }
+
+/* ============ 月份切换 ============ */
+.month-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 5px;
+  box-shadow: var(--shadow-sm);
+}
+
+.nav-arrow {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, color .15s;
+}
+
+.nav-arrow:hover { background: #f1f6f3; color: var(--text); }
+
+.month-label {
+  min-width: 108px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.today-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--green-ink);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.today-btn:hover { background: var(--green-bg); }
+
+/* ============ 账单页工具栏 ============ */
+.bill-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.bill-filters {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 300px;
+}
+
+.filter-select, .filter-search {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.filter-select { min-width: 118px; }
+.filter-search { flex: 1; max-width: 220px; min-width: 120px; }
+
+.filter-select:focus, .filter-search:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-bg);
+}
+
+/* ============ 账单列表 ============ */
+.bill-panel { padding: 10px 24px 16px; }
+
+.bill-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 2px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bill-day-date { font-size: 13px; font-weight: 600; color: var(--text); }
+.bill-day-sum { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.bill-day-list { list-style: none; }
+
+.bill-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bill-row:last-child { border-bottom: none; }
+
+.bill-amount {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
+.bill-amount.expense { color: var(--expense-deep); }
+.bill-amount.income  { color: var(--green-ink); }
+
+.bill-actions { display: flex; gap: 6px; margin-left: 14px; }
+
+.bill-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.bill-btn.edit:hover { border-color: var(--green); color: var(--green-ink); background: var(--green-bg); }
+.bill-btn.del:hover  { border-color: var(--expense); color: var(--expense-deep); background: var(--expense-soft); }
+
+/* ============ 统计页 ============ */
+.stats-switch { margin-bottom: 16px; }
+
+.donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding: 10px 6px 6px;
+}
+
+.donut-figure { position: relative; width: 180px; height: 180px; flex-shrink: 0; }
+.donut-figure svg { display: block; }
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donut-center-label { font-size: 12px; color: var(--text-muted); }
+.donut-center-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+
+.legend { list-style: none; flex: 1; min-width: 220px; }
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.legend-item:last-child { border-bottom: none; }
+
+.legend-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.legend-name { flex: 1; color: var(--text); }
+.legend-pct { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.legend-val {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 78px;
+  text-align: right;
+}
+
+.trend-legend {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+
+.trend-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.trend-chart { width: 100%; }
+.trend-chart svg { width: 100%; height: auto; display: block; }
+
+.axis-label { font-size: 11px; fill: var(--text-muted); }
+.tip-label { font-size: 10px; fill: var(--text-muted); }
 
 /* ============ 轻提示 toast ============ */
 .toast {

@@ -45,6 +45,12 @@ function registerIpcHandlers() {
   ipcMain.handle('db:addRecord', (_event, record) => db.addRecord(record));
   ipcMain.handle('db:getRecentRecords', (_event, limit) => db.getRecentRecords(limit || 10));
   ipcMain.handle('db:getMonthlySummary', (_event, { year, month }) => db.getMonthlySummary(year, month));
+  // —— 阶段3 新增 ——
+  ipcMain.handle('db:getRecordsByMonth', (_event, { year, month }) => db.getRecordsByMonth(year, month));
+  ipcMain.handle('db:getCategoryTotals', (_event, { year, month, type }) => db.getCategoryTotals(year, month, type));
+  ipcMain.handle('db:getMonthlyTrend', (_event, { year, month, count }) => db.getMonthlyTrend(year, month, count || 6));
+  ipcMain.handle('db:updateRecord', (_event, { id, record }) => db.updateRecord(id, record));
+  ipcMain.handle('db:deleteRecord', (_event, id) => db.deleteRecord(id));
 }
 
 // 软件启动就绪后：先打开账本、登记服务，再创建窗口

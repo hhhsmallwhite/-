@@ -109,6 +109,72 @@ function nextMonthStart(year, month) {
   return `${year}-${String(month + 1).padStart(2, '0')}-01`;
 }
 
+/** 取某年某月的全部记录（账单页用），按日期从新到旧、同日按记账时刻从新到旧 */
+function getRecordsByMonth(year, month) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const end = nextMonthStart(year, month);
+  const rows = db.prepare(
+    'SELECT * FROM records WHERE date >= ? AND date < ? ORDER BY date DESC, created_at DESC, id DESC'
+  ).all(start, end);
+  return rows.map(toRecord);
+}
+
+/** 某月内按「一级大类」汇总某类收支（统计占比用），金额从高到低排 */
+function getCategoryTotals(year, month, type) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const end = nextMonthStart(year, month);
+  const rows = db.prepare(`
+    SELECT category_main AS name, SUM(amount_cents) AS total
+    FROM records
+    WHERE date >= ? AND date < ? AND type = ?
+    GROUP BY category_main
+    ORDER BY total DESC
+  `).all(start, end, type);
+  return rows.map(r => ({ name: r.name, total: r.total }));
+}
+
+/** 取「以某月为终点」往前数 count 个月，每月的收支汇总（趋势图用），从旧到新 */
+function getMonthlyTrend(endYear, endMonth, count = 6) {
+  const list = [];
+  for (let i = count - 1; i >= 0; i--) {
+    // 月份做加减法时自动进位/退位（比如 1 月往前 1 个月 = 去年 12 月）
+    const d = new Date(endYear, endMonth - 1 - i, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const s = getMonthlySummary(year, month);
+    list.push({ year, month, expense: s.expense, income: s.income });
+  }
+  return list;
+}
+
+/** 修改一笔账（按编号 id，改成 record 里的新内容），返回改好的完整记录 */
+function updateRecord(id, record) {
+  db.prepare(`
+    UPDATE records SET
+      type = @type,
+      amount_cents = @amountCents,
+      category_main = @categoryMain,
+      category_sub = @categorySub,
+      note = @note,
+      date = @date
+    WHERE id = @id
+  `).run({
+    id,
+    type: record.type,
+    amountCents: record.amountCents,
+    categoryMain: record.categoryMain,
+    categorySub: record.categorySub,
+    note: record.note || '',
+    date: record.date
+  });
+  return getRecordById(id);
+}
+
+/** 删除一笔账 */
+function deleteRecord(id) {
+  db.prepare('DELETE FROM records WHERE id = ?').run(id);
+}
+
 /** 把数据库里的一行，转成界面方便使用的对象（金额从「分」换成「元」） */
 function toRecord(row) {
   return {
@@ -124,4 +190,9 @@ function toRecord(row) {
   };
 }
 
-module.exports = { init, close, addRecord, getRecentRecords, getMonthlySummary };
+module.exports = {
+  init, close,
+  addRecord, getRecordById, getRecentRecords, getMonthlySummary,
+  getRecordsByMonth, getCategoryTotals, getMonthlyTrend,
+  updateRecord, deleteRecord
+};

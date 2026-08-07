@@ -79,6 +79,9 @@ function switchPage(pageId) {
   document.querySelectorAll('.page').forEach(page => {
     page.classList.toggle('active', page.id === 'page-' + pageId);
   });
+  // 每次切到「账单」或「统计」页，刷新一遍该页的数据
+  if (pageId === 'bills') loadBills();
+  if (pageId === 'stats') loadStats();
 }
 
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -91,17 +94,48 @@ const modal = document.getElementById('addModal');
 const catTabsEl = document.getElementById('catTabs');
 const catGridEl = document.getElementById('catGrid');
 
+let editingId = null;   // 正在「修改」的那笔账的编号；null 表示是新增
+
 function openModal() {
-  resetForm();
   modal.classList.remove('hidden');
   document.getElementById('amountInput').focus();
 }
 
 function closeModal() {
   modal.classList.add('hidden');
+  editingId = null;   // 关掉弹窗就退出修改状态
 }
 
-document.getElementById('openAddBtn').addEventListener('click', openModal);
+// 切换弹窗标题和保存按钮文字（新增 vs 修改）
+function setModalTitle(title) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('saveBtn').textContent = title === '修改这笔账' ? '保存修改' : '保存';
+}
+
+// 点左侧「记一笔」：新增一笔
+function openModalForAdd() {
+  editingId = null;
+  setModalTitle('记一笔');
+  resetForm();
+  openModal();
+}
+
+// 从账单页点「修改」：把那一笔的旧内容填回弹窗
+function openModalForEdit(record) {
+  editingId = record.id;
+  setModalTitle('修改这笔账');
+  // 先按记录的类型切好收支和分类，再把金额/备注/日期填回去
+  setType(record.type);
+  currentMain = record.categoryMain;
+  currentSub = record.categorySub;
+  renderCategoryTabs();
+  document.getElementById('amountInput').value = record.amount.toFixed(2);
+  document.getElementById('noteInput').value = record.note || '';
+  document.getElementById('dateInput').value = record.date;
+  openModal();
+}
+
+document.getElementById('openAddBtn').addEventListener('click', openModalForAdd);
 document.getElementById('closeAddModal').addEventListener('click', closeModal);
 
 // 点击弹窗外部的灰色背景，也关闭弹窗
@@ -211,10 +245,17 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   const typeText = currentType === 'expense' ? '支出' : '收入';
 
   try {
-    await window.blackhorse.addRecord(record);
-    showToast(`✓ 已保存 ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）`);
+    if (editingId !== null) {
+      // 正在修改某笔账：按编号更新
+      await window.blackhorse.updateRecord(editingId, record);
+      showToast(`✓ 已修改 ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）`);
+    } else {
+      // 新增一笔
+      await window.blackhorse.addRecord(record);
+      showToast(`✓ 已保存 ${typeText} ¥${amount.toFixed(2)}（${currentMain}·${currentSub}）`);
+    }
     closeModal();
-    refreshOverview();
+    refreshAll();
   } catch (e) {
     console.error('保存失败：', e);
     showToast('保存失败，请稍后重试');
@@ -301,6 +342,402 @@ function escapeHtml(str) {
   return s.replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
+}
+
+/* ==================== 数据刷新（公共） ==================== */
+
+// 保存 / 修改 / 删除后，把当前正在显示的页面都刷新一遍
+function refreshAll() {
+  refreshOverview();
+  if (document.getElementById('page-bills').classList.contains('active')) loadBills();
+  if (document.getElementById('page-stats').classList.contains('active')) loadStats();
+}
+
+/* ==================== 账单页 ==================== */
+
+let billsYear = 0, billsMonth = 0;   // 0 表示还没初始化，首次打开设为当前月
+let billsRecords = [];               // 当前月的全部记录（未筛选），前端直接筛选
+
+function initBillsMonth() {
+  if (!billsYear) {
+    const now = new Date();
+    billsYear = now.getFullYear();
+    billsMonth = now.getMonth() + 1;
+  }
+}
+
+function shiftBillsMonth(delta) {
+  const d = new Date(billsYear, billsMonth - 1 + delta, 1);
+  billsYear = d.getFullYear();
+  billsMonth = d.getMonth() + 1;
+  loadBills();
+}
+
+async function loadBills() {
+  initBillsMonth();
+  document.getElementById('billMonthLabel').textContent = `${billsYear}年${billsMonth}月`;
+  try {
+    billsRecords = await window.blackhorse.getRecordsByMonth(billsYear, billsMonth);
+    buildBillCatFilter();
+    renderBills();
+  } catch (e) {
+    console.error('加载账单失败：', e);
+  }
+}
+
+// 填充分类筛选下拉框（支出 + 收入的全部大类，两个都选得到）
+function buildBillCatFilter() {
+  const sel = document.getElementById('billCatFilter');
+  const names = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].map(c => c.name);
+  const prev = sel.value;
+  sel.innerHTML = '<option value="all">全部分类</option>' +
+    names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  sel.value = names.includes(prev) ? prev : 'all';
+}
+
+// 把当月记录按「类型 + 分类 + 搜索词」筛选一遍
+function getFilteredBills() {
+  const type = document.getElementById('billTypeFilter').value;
+  const cat = document.getElementById('billCatFilter').value;
+  const kw = document.getElementById('billSearch').value.trim().toLowerCase();
+  return billsRecords.filter(r => {
+    if (type !== 'all' && r.type !== type) return false;
+    if (cat !== 'all' && r.categoryMain !== cat) return false;
+    if (kw && !(r.note || '').toLowerCase().includes(kw)) return false;
+    return true;
+  });
+}
+
+function renderBills() {
+  const list = getFilteredBills();
+  const emptyEl = document.getElementById('billEmpty');
+  const listEl = document.getElementById('billList');
+
+  if (list.length === 0) {
+    const isFiltered = document.getElementById('billTypeFilter').value !== 'all' ||
+                       document.getElementById('billCatFilter').value !== 'all' ||
+                       document.getElementById('billSearch').value.trim() !== '';
+    if (billsRecords.length === 0) {
+      document.getElementById('billEmptyTitle').textContent = '本月还没有记录';
+      document.getElementById('billEmptyHint').textContent = '点左侧「＋ 记一笔」记一笔，或用箭头看看其他月份';
+    } else if (isFiltered) {
+      document.getElementById('billEmptyTitle').textContent = '没有符合条件的记录';
+      document.getElementById('billEmptyHint').textContent = '换个筛选条件或清空搜索试试';
+    }
+    emptyEl.classList.remove('hidden');
+    listEl.classList.add('hidden');
+    listEl.innerHTML = '';
+    return;
+  }
+
+  emptyEl.classList.add('hidden');
+  listEl.classList.remove('hidden');
+
+  // 按日期分组（同一天归到一组），日期从新到旧排
+  const groups = {};
+  for (const r of list) (groups[r.date] = groups[r.date] || []).push(r);
+  const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  listEl.innerHTML = dates.map(date => {
+    const recs = groups[date];
+    const dayExpense = recs.filter(r => r.type === 'expense').reduce((s, r) => s + r.amountCents, 0);
+    const dayIncome = recs.filter(r => r.type === 'income').reduce((s, r) => s + r.amountCents, 0);
+    const parts = [];
+    if (dayExpense) parts.push(`支 ¥${fmtMoney(dayExpense)}`);
+    if (dayIncome) parts.push(`收 ¥${fmtMoney(dayIncome)}`);
+    const d = new Date(date + 'T00:00:00');
+    return `
+      <div class="bill-day">
+        <div class="bill-day-head">
+          <span class="bill-day-date">${d.getMonth() + 1}月${d.getDate()}日</span>
+          <span class="bill-day-sum">${parts.join('　')}</span>
+        </div>
+        <ul class="bill-day-list">
+          ${recs.map(renderBillRow).join('')}
+        </ul>
+      </div>`;
+  }).join('');
+}
+
+function renderBillRow(r) {
+  const isExpense = r.type === 'expense';
+  const sign = isExpense ? '-' : '+';
+  const note = escapeHtml(r.note);
+  return `
+    <li class="bill-row" data-id="${r.id}">
+      <span class="record-icon">${CATEGORY_ICONS[r.categoryMain] || ''}</span>
+      <div class="record-main">
+        <div class="record-cat">${escapeHtml(r.categoryMain)} · ${escapeHtml(r.categorySub)}</div>
+        <div class="record-note">${note || '&nbsp;'}</div>
+      </div>
+      <span class="bill-amount ${isExpense ? 'expense' : 'income'}">${sign}¥${r.amount.toFixed(2)}</span>
+      <div class="bill-actions">
+        <button class="bill-btn edit" type="button" data-action="edit">修改</button>
+        <button class="bill-btn del" type="button" data-action="delete">删除</button>
+      </div>
+    </li>`;
+}
+
+// 账单列表里的「修改 / 删除」按钮（事件委托，统一处理）
+document.getElementById('billList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.bill-btn');
+  if (!btn) return;
+  const row = btn.closest('.bill-row');
+  if (!row) return;
+  const id = Number(row.dataset.id);
+  const record = billsRecords.find(r => r.id === id);
+  if (!record) return;
+  if (btn.dataset.action === 'edit') {
+    openModalForEdit(record);
+  } else if (btn.dataset.action === 'delete') {
+    deleteBill(record);
+  }
+});
+
+async function deleteBill(record) {
+  const money = `¥${record.amount.toFixed(2)}`;
+  const ok = confirm(`确定删除这笔账吗？\n${record.categoryMain}·${record.categorySub} ${money}\n删除后无法恢复。`);
+  if (!ok) return;
+  try {
+    await window.blackhorse.deleteRecord(record.id);
+    showToast('已删除这笔账');
+    refreshAll();
+  } catch (e) {
+    console.error('删除失败：', e);
+    showToast('删除失败，请重试');
+  }
+}
+
+// 月份切换 / 回到本月 / 筛选搜索
+document.getElementById('billPrevMonth').addEventListener('click', () => shiftBillsMonth(-1));
+document.getElementById('billNextMonth').addEventListener('click', () => shiftBillsMonth(1));
+document.getElementById('billTodayBtn').addEventListener('click', () => {
+  const now = new Date();
+  billsYear = now.getFullYear();
+  billsMonth = now.getMonth() + 1;
+  loadBills();
+});
+document.getElementById('billTypeFilter').addEventListener('change', renderBills);
+document.getElementById('billCatFilter').addEventListener('change', renderBills);
+document.getElementById('billSearch').addEventListener('input', renderBills);
+
+/* ==================== 统计页 ==================== */
+
+let statsYear = 0, statsMonth = 0;   // 0 表示还没初始化，首次打开设为当前月
+
+function initStatsMonth() {
+  if (!statsYear) {
+    const now = new Date();
+    statsYear = now.getFullYear();
+    statsMonth = now.getMonth() + 1;
+  }
+}
+
+function shiftStatsMonth(delta) {
+  const d = new Date(statsYear, statsMonth - 1 + delta, 1);
+  statsYear = d.getFullYear();
+  statsMonth = d.getMonth() + 1;
+  loadStats();
+}
+
+async function loadStats() {
+  initStatsMonth();
+  document.getElementById('statsMonthLabel').textContent = `${statsYear}年${statsMonth}月`;
+  try {
+    const s = await window.blackhorse.getMonthlySummary(statsYear, statsMonth);
+    document.getElementById('statsExpense').textContent = fmtMoney(s.expense);
+    document.getElementById('statsIncome').textContent = fmtMoney(s.income);
+    document.getElementById('statsBalance').textContent = fmtMoney(s.balance);
+
+    const cats = await window.blackhorse.getCategoryTotals(statsYear, statsMonth, 'expense');
+    renderDonut(cats);
+
+    const trend = await window.blackhorse.getMonthlyTrend(statsYear, statsMonth, 6);
+    renderTrend(trend);
+  } catch (e) {
+    console.error('加载统计失败：', e);
+  }
+}
+
+document.getElementById('statsPrevMonth').addEventListener('click', () => shiftStatsMonth(-1));
+document.getElementById('statsNextMonth').addEventListener('click', () => shiftStatsMonth(1));
+document.getElementById('statsTodayBtn').addEventListener('click', () => {
+  const now = new Date();
+  statsYear = now.getFullYear();
+  statsMonth = now.getMonth() + 1;
+  loadStats();
+});
+
+/* ==================== 图表：支出分类占比（环形图） ==================== */
+
+// 分类色板：8 个一眼可分的颜色；环形图最多只画 6 段，不会挤
+const DONUT_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+
+function renderDonut(cats) {
+  const el = document.getElementById('statsDonut');
+  const total = cats.reduce((s, c) => s + c.total, 0);
+
+  if (!cats.length || total <= 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <p class="empty-title">本月还没有支出</p>
+        <p class="empty-hint">记一笔支出后，这里就能看到钱都花在哪些分类</p>
+      </div>`;
+    return;
+  }
+
+  // 取金额最大的前 5 类 + 其余归成「其他」，最多 6 段
+  const segs = cats.slice(0, 5).map((c, i) => ({ name: c.name, total: c.total, color: DONUT_COLORS[i] }));
+  const rest = cats.slice(5);
+  if (rest.length) {
+    segs.push({ name: '其他', total: rest.reduce((s, c) => s + c.total, 0), color: '#94a3b8' });
+  }
+
+  // 每段是一个带小缺口的圆弧（缺口让相邻段分得清）
+  const R = 66, C = 2 * Math.PI * R, GAP = 2.5;
+  let offset = 0;
+  const arcs = segs.map(seg => {
+    const frac = seg.total / total;
+    const dash = Math.max(0, frac * C - GAP);
+    const o = offset;
+    offset += frac * C;
+    return `<circle cx="100" cy="100" r="${R}" fill="none" stroke="${seg.color}" stroke-width="26"
+      stroke-dasharray="${dash.toFixed(2)} ${C.toFixed(2)}"
+      stroke-dashoffset="${(-o).toFixed(2)}" transform="rotate(-90 100 100)">
+      <title>${escapeHtml(seg.name)}：${fmtMoney(seg.total)} 元（${Math.round(frac * 100)}%）</title>
+    </circle>`;
+  }).join('');
+
+  const legend = segs.map(seg => `
+    <li class="legend-item">
+      <span class="legend-dot" style="background:${seg.color}"></span>
+      <span class="legend-name">${escapeHtml(seg.name)}</span>
+      <span class="legend-pct">${Math.round(seg.total / total * 100)}%</span>
+      <span class="legend-val">¥${fmtMoney(seg.total)}</span>
+    </li>`).join('');
+
+  el.innerHTML = `
+    <div class="donut-wrap">
+      <div class="donut-figure">
+        <svg viewBox="0 0 200 200" width="180" height="180" role="img" aria-label="支出分类占比环形图">${arcs}</svg>
+        <div class="donut-center">
+          <span class="donut-center-label">总支出</span>
+          <span class="donut-center-value">¥${fmtMoney(total)}</span>
+        </div>
+      </div>
+      <ul class="legend">${legend}</ul>
+    </div>`;
+}
+
+/* ==================== 图表：近6个月收支趋势（柱状图） ==================== */
+
+// 把「分」换成好读的元：52.5 → "52.5"、1800 → "1,800"
+function fmtYuan(cents) {
+  const v = cents / 100;
+  const fixed = Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1);
+  const [int, dec] = fixed.split('.');
+  return dec ? int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec
+             : int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// 纵轴刻度取整（100 / 200 / 500 / 1000……），让柱子贴着整齐的刻度线
+function niceCeilYuan(cents) {
+  const yuan = Math.max(cents / 100, 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(yuan)));
+  const norm = yuan / mag;
+  const step = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+  return step * mag;
+}
+
+// 画一根柱子的路径：顶部圆角、底部直角（贴着底线）
+function barPath(x, y, w, h, r = 4) {
+  const rr = Math.min(r, Math.max(h / 2, 1));
+  return `M${x} ${y + h}L${x} ${y + rr}Q${x} ${y} ${x + rr} ${y}H${x + w - rr}Q${x + w} ${y} ${x + w} ${y + rr}V${y + h}Z`;
+}
+
+function renderTrend(trend) {
+  const el = document.getElementById('statsTrend');
+  const maxVal = Math.max(...trend.flatMap(m => [m.expense, m.income]), 1);
+
+  if (maxVal <= 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <p class="empty-title">还没有收支记录</p>
+        <p class="empty-hint">记录几笔后，这里会显示近6个月的收支走势</p>
+      </div>`;
+    return;
+  }
+
+  const W = 640, H = 230, padL = 52, padR = 14, padT = 20, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const yMax = niceCeilYuan(maxVal);        // 纵轴最大值（元）
+  const yMaxCents = yMax * 100;
+  const y = (cents) => padT + plotH * (1 - cents / yMaxCents);
+
+  // 横线刻度 + 纵轴数字（浅浅的线，不抢眼）
+  let grid = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = yMax * i / 4;
+    const yy = y(v * 100);
+    grid += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" stroke="#e3eae7" stroke-width="1"/>`;
+    grid += `<text x="${padL - 8}" y="${(yy + 4).toFixed(1)}" text-anchor="end" class="axis-label">${fmtAxisYuan(v)}</text>`;
+  }
+
+  // 每个月画两根柱子：支出（红）+ 收入（绿），中间留缝
+  const n = trend.length;
+  const groupW = plotW / n;
+  const barW = Math.min(24, groupW * 0.26);
+  const gap = 3;
+  let bars = '';
+
+  trend.forEach((m, i) => {
+    const x0 = padL + groupW * i + (groupW - barW * 2 - gap) / 2;
+    const xExp = x0;
+    const xInc = x0 + barW + gap;
+    const cxExp = xExp + barW / 2;
+    const cxInc = xInc + barW / 2;
+
+    if (m.expense > 0) {
+      const hExp = m.expense / yMaxCents * plotH;
+      const yExp = y(m.expense);
+      bars += `<path d="${barPath(xExp, yExp, barW, hExp)}" fill="#ef4444"><title>${m.year}年${m.month}月 支出 ¥${fmtYuan(m.expense)}</title></path>`;
+      if (hExp >= 16) {
+        bars += `<text x="${cxExp.toFixed(1)}" y="${(yExp - 6).toFixed(1)}" text-anchor="middle" class="tip-label">${fmtYuan(m.expense)}</text>`;
+      }
+    }
+    if (m.income > 0) {
+      const hInc = m.income / yMaxCents * plotH;
+      const yInc = y(m.income);
+      bars += `<path d="${barPath(xInc, yInc, barW, hInc)}" fill="#10b981"><title>${m.year}年${m.month}月 收入 ¥${fmtYuan(m.income)}</title></path>`;
+      if (hInc >= 16) {
+        bars += `<text x="${cxInc.toFixed(1)}" y="${(yInc - 6).toFixed(1)}" text-anchor="middle" class="tip-label">${fmtYuan(m.income)}</text>`;
+      }
+    }
+
+    // 月份标签（1 月带上年份，跨年也看得清）
+    const label = m.month === 1 ? `${m.year % 100}年1月` : `${m.month}月`;
+    bars += `<text x="${(x0 + barW + gap / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="axis-label">${label}</text>`;
+  });
+
+  el.innerHTML = `
+    <div class="trend-legend">
+      <span class="trend-legend-item"><span class="legend-dot" style="background:#ef4444"></span>支出</span>
+      <span class="trend-legend-item"><span class="legend-dot" style="background:#10b981"></span>收入</span>
+    </div>
+    <div class="trend-chart">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近6个月收支趋势柱状图">
+        ${grid}${bars}
+      </svg>
+    </div>`;
+}
+
+// 纵轴数字：1,200 这种；上了万就写「1.5万」
+function fmtAxisYuan(yuan) {
+  if (yuan >= 10000) {
+    const w = yuan / 10000;
+    return (Number.isInteger(w) ? w : w.toFixed(1)) + '万';
+  }
+  return yuan.toLocaleString('en-US');
 }
 
 /* ==================== 启动 ==================== */
