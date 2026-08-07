@@ -24,8 +24,10 @@ contextBridge.exposeInMainWorld('blackhorse', {
   getRecordsByMonth: (year, month) => ipcRenderer.invoke('db:getRecordsByMonth', { year, month }),
   // 取某月某类型的分类金额汇总（统计占比图用）
   getCategoryTotals: (year, month, type) => ipcRenderer.invoke('db:getCategoryTotals', { year, month, type }),
-  // 取「以某月为终点」往前 count 个月的每月收支（趋势图用）
-  getMonthlyTrend: (year, month, count) => ipcRenderer.invoke('db:getMonthlyTrend', { year, month, count }),
+  // 取「从某月到某月」每个月的收支（趋势图用）
+  getMonthlyTrend: (startYear, startMonth, endYear, endMonth) => ipcRenderer.invoke('db:getMonthlyTrend', { startYear, startMonth, endYear, endMonth }),
+  // 取全部记录里最早和最晚的日期（趋势图「全部」用）
+  getDateRange: () => ipcRenderer.invoke('db:getDateRange'),
   // 修改一笔账
   updateRecord: (id, record) => ipcRenderer.invoke('db:updateRecord', { id, record }),
   // 删除一笔账

@@ -48,7 +48,8 @@ function registerIpcHandlers() {
   // —— 阶段3 新增 ——
   ipcMain.handle('db:getRecordsByMonth', (_event, { year, month }) => db.getRecordsByMonth(year, month));
   ipcMain.handle('db:getCategoryTotals', (_event, { year, month, type }) => db.getCategoryTotals(year, month, type));
-  ipcMain.handle('db:getMonthlyTrend', (_event, { year, month, count }) => db.getMonthlyTrend(year, month, count || 6));
+  ipcMain.handle('db:getMonthlyTrend', (_event, { startYear, startMonth, endYear, endMonth }) => db.getMonthlyTrendRange(startYear, startMonth, endYear, endMonth));
+  ipcMain.handle('db:getDateRange', () => db.getDateRange());
   ipcMain.handle('db:updateRecord', (_event, { id, record }) => db.updateRecord(id, record));
   ipcMain.handle('db:deleteRecord', (_event, id) => db.deleteRecord(id));
 }

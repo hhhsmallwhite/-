@@ -133,18 +133,27 @@ function getCategoryTotals(year, month, type) {
   return rows.map(r => ({ name: r.name, total: r.total }));
 }
 
-/** 取「以某月为终点」往前数 count 个月，每月的收支汇总（趋势图用），从旧到新 */
-function getMonthlyTrend(endYear, endMonth, count = 6) {
+/** 取「从某月开始，到某月结束」（含首尾）每个月的收支汇总（趋势图用），从旧到新 */
+function getMonthlyTrendRange(startYear, startMonth, endYear, endMonth) {
   const list = [];
-  for (let i = count - 1; i >= 0; i--) {
-    // 月份做加减法时自动进位/退位（比如 1 月往前 1 个月 = 去年 12 月）
-    const d = new Date(endYear, endMonth - 1 - i, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-    const s = getMonthlySummary(year, month);
-    list.push({ year, month, expense: s.expense, income: s.income });
+  let y = startYear, m = startMonth;
+  const endKey = endYear * 12 + (endMonth - 1);
+  let guard = 0;
+  while (y * 12 + (m - 1) <= endKey && guard < 1200) {   // 上限 100 年，防意外死循环
+    const s = getMonthlySummary(y, m);
+    list.push({ year: y, month: m, expense: s.expense, income: s.income });
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+    guard += 1;
   }
   return list;
+}
+
+/** 全部记录里最早和最晚的日期（趋势图「全部」按钮用）；没有任何记录时返回 null */
+function getDateRange() {
+  const row = db.prepare('SELECT MIN(date) AS minDate, MAX(date) AS maxDate FROM records').get();
+  if (!row || !row.minDate) return null;
+  return { minDate: row.minDate, maxDate: row.maxDate };
 }
 
 /** 修改一笔账（按编号 id，改成 record 里的新内容），返回改好的完整记录 */
@@ -193,6 +202,6 @@ function toRecord(row) {
 module.exports = {
   init, close,
   addRecord, getRecordById, getRecentRecords, getMonthlySummary,
-  getRecordsByMonth, getCategoryTotals, getMonthlyTrend,
+  getRecordsByMonth, getCategoryTotals, getMonthlyTrendRange, getDateRange,
   updateRecord, deleteRecord
 };

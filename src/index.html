@@ -197,7 +197,31 @@
         </div>
 
         <div class="panel">
-          <div class="panel-head"><h2>近6个月收支趋势</h2></div>
+          <div class="panel-head"><h2>收入分类占比</h2></div>
+          <div id="statsDonutIncome"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>收支结余</h2></div>
+          <div id="statsBalanceDonut"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>收支趋势</h2></div>
+          <div class="trend-controls">
+            <div class="range-pills" aria-label="快速选择月份范围">
+              <button class="range-pill" type="button" data-months="3">近3个月</button>
+              <button class="range-pill active" type="button" data-months="6">近6个月</button>
+              <button class="range-pill" type="button" data-months="12">近12个月</button>
+              <button class="range-pill" type="button" data-months="all">全部</button>
+            </div>
+            <div class="range-inputs">
+              <label class="range-label" for="trendStart">从</label>
+              <input type="month" id="trendStart" class="filter-select" aria-label="起始月份">
+              <label class="range-label" for="trendEnd">到</label>
+              <input type="month" id="trendEnd" class="filter-select" aria-label="结束月份">
+            </div>
+          </div>
           <div id="statsTrend"></div>
         </div>
       </section>

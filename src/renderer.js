@@ -358,6 +358,25 @@ function refreshAll() {
 let billsYear = 0, billsMonth = 0;   // 0 表示还没初始化，首次打开设为当前月
 let billsRecords = [];               // 当前月的全部记录（未筛选），前端直接筛选
 
+// 现在的年月
+function currentYm() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+// 是不是未来月份（将来的月份不允许查看/翻到）
+function isFuture(year, month) {
+  const c = currentYm();
+  return year > c.year || (year === c.year && month > c.month);
+}
+
+// 已经在本月时，「下个月」按钮置灰，避免翻到未来
+function updateMonthNavDisabled() {
+  const c = currentYm();
+  document.getElementById('billNextMonth').disabled = (billsYear > c.year || (billsYear === c.year && billsMonth >= c.month));
+  document.getElementById('statsNextMonth').disabled = (statsYear > c.year || (statsYear === c.year && statsMonth >= c.month));
+}
+
 function initBillsMonth() {
   if (!billsYear) {
     const now = new Date();
@@ -368,14 +387,17 @@ function initBillsMonth() {
 
 function shiftBillsMonth(delta) {
   const d = new Date(billsYear, billsMonth - 1 + delta, 1);
-  billsYear = d.getFullYear();
-  billsMonth = d.getMonth() + 1;
+  const next = { year: d.getFullYear(), month: d.getMonth() + 1 };
+  if (delta > 0 && isFuture(next.year, next.month)) return;   // 不往未来翻
+  billsYear = next.year;
+  billsMonth = next.month;
   loadBills();
 }
 
 async function loadBills() {
   initBillsMonth();
   document.getElementById('billMonthLabel').textContent = `${billsYear}年${billsMonth}月`;
+  updateMonthNavDisabled();
   try {
     billsRecords = await window.blackhorse.getRecordsByMonth(billsYear, billsMonth);
     buildBillCatFilter();
@@ -535,25 +557,44 @@ function initStatsMonth() {
 
 function shiftStatsMonth(delta) {
   const d = new Date(statsYear, statsMonth - 1 + delta, 1);
-  statsYear = d.getFullYear();
-  statsMonth = d.getMonth() + 1;
+  const next = { year: d.getFullYear(), month: d.getMonth() + 1 };
+  if (delta > 0 && isFuture(next.year, next.month)) return;   // 不往未来翻
+  statsYear = next.year;
+  statsMonth = next.month;
   loadStats();
 }
 
 async function loadStats() {
   initStatsMonth();
   document.getElementById('statsMonthLabel').textContent = `${statsYear}年${statsMonth}月`;
+  updateMonthNavDisabled();
   try {
     const s = await window.blackhorse.getMonthlySummary(statsYear, statsMonth);
     document.getElementById('statsExpense').textContent = fmtMoney(s.expense);
     document.getElementById('statsIncome').textContent = fmtMoney(s.income);
     document.getElementById('statsBalance').textContent = fmtMoney(s.balance);
 
+    // 支出分类占比
     const cats = await window.blackhorse.getCategoryTotals(statsYear, statsMonth, 'expense');
-    renderDonut(cats);
+    renderDonut(document.getElementById('statsDonut'), cats, {
+      centerLabel: '总支出',
+      emptyTitle: '本月还没有支出',
+      emptyHint: '记一笔支出后，这里就能看到钱都花在哪些分类'
+    });
 
-    const trend = await window.blackhorse.getMonthlyTrend(statsYear, statsMonth, 6);
-    renderTrend(trend);
+    // 收入分类占比
+    const incCats = await window.blackhorse.getCategoryTotals(statsYear, statsMonth, 'income');
+    renderDonut(document.getElementById('statsDonutIncome'), incCats, {
+      centerLabel: '总收入',
+      emptyTitle: '本月还没有收入',
+      emptyHint: '记一笔收入后，这里就能看到钱都是从哪来的'
+    });
+
+    // 收支结余（支出 vs 收入）
+    renderBalanceDonut(document.getElementById('statsBalanceDonut'), s.expense, s.income);
+
+    // 收支趋势（范围在下方控件里自己选）
+    renderTrendRange();
   } catch (e) {
     console.error('加载统计失败：', e);
   }
@@ -568,68 +609,101 @@ document.getElementById('statsTodayBtn').addEventListener('click', () => {
   loadStats();
 });
 
-/* ==================== 图表：支出分类占比（环形图） ==================== */
+/* ==================== 图表：环形图（通用） ==================== */
 
 // 分类色板：8 个一眼可分的颜色；环形图最多只画 6 段，不会挤
 const DONUT_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
 
-function renderDonut(cats) {
-  const el = document.getElementById('statsDonut');
-  const total = cats.reduce((s, c) => s + c.total, 0);
-
-  if (!cats.length || total <= 0) {
-    el.innerHTML = `
-      <div class="empty-state">
-        <p class="empty-title">本月还没有支出</p>
-        <p class="empty-hint">记一笔支出后，这里就能看到钱都花在哪些分类</p>
-      </div>`;
-    return;
-  }
-
-  // 取金额最大的前 5 类 + 其余归成「其他」，最多 6 段
-  const segs = cats.slice(0, 5).map((c, i) => ({ name: c.name, total: c.total, color: DONUT_COLORS[i] }));
-  const rest = cats.slice(5);
-  if (rest.length) {
-    segs.push({ name: '其他', total: rest.reduce((s, c) => s + c.total, 0), color: '#94a3b8' });
-  }
-
-  // 每段是一个带小缺口的圆弧（缺口让相邻段分得清）
+// 画一段带小缺口的圆弧（缺口让相邻段分得清）
+function donutArc(seg, total, startOffset) {
   const R = 66, C = 2 * Math.PI * R, GAP = 2.5;
+  const frac = total > 0 ? seg.total / total : 0;
+  const dash = Math.max(0, frac * C - GAP);
+  return `<circle cx="100" cy="100" r="${R}" fill="none" stroke="${seg.color}" stroke-width="26"
+    stroke-dasharray="${dash.toFixed(2)} ${C.toFixed(2)}"
+    stroke-dashoffset="${(-startOffset).toFixed(2)}" transform="rotate(-90 100 100)">
+    <title>${escapeHtml(seg.name)}：${fmtMoney(seg.total)} 元（${Math.round(frac * 100)}%）</title>
+  </circle>`;
+}
+
+// 拼出「环形图 + 中心数字 + 图例」整块 HTML
+function buildDonutHtml(segs, total, centerLabel, centerValue, centerClass = '') {
+  const R = 66, C = 2 * Math.PI * R;
   let offset = 0;
   const arcs = segs.map(seg => {
-    const frac = seg.total / total;
-    const dash = Math.max(0, frac * C - GAP);
+    const frac = total > 0 ? seg.total / total : 0;
     const o = offset;
     offset += frac * C;
-    return `<circle cx="100" cy="100" r="${R}" fill="none" stroke="${seg.color}" stroke-width="26"
-      stroke-dasharray="${dash.toFixed(2)} ${C.toFixed(2)}"
-      stroke-dashoffset="${(-o).toFixed(2)}" transform="rotate(-90 100 100)">
-      <title>${escapeHtml(seg.name)}：${fmtMoney(seg.total)} 元（${Math.round(frac * 100)}%）</title>
-    </circle>`;
+    return donutArc(seg, total, o);
   }).join('');
 
   const legend = segs.map(seg => `
     <li class="legend-item">
       <span class="legend-dot" style="background:${seg.color}"></span>
       <span class="legend-name">${escapeHtml(seg.name)}</span>
-      <span class="legend-pct">${Math.round(seg.total / total * 100)}%</span>
+      <span class="legend-pct">${total > 0 ? Math.round(seg.total / total * 100) : 0}%</span>
       <span class="legend-val">¥${fmtMoney(seg.total)}</span>
     </li>`).join('');
 
-  el.innerHTML = `
+  return `
     <div class="donut-wrap">
       <div class="donut-figure">
-        <svg viewBox="0 0 200 200" width="180" height="180" role="img" aria-label="支出分类占比环形图">${arcs}</svg>
+        <svg viewBox="0 0 200 200" width="180" height="180" role="img" aria-label="${escapeHtml(centerLabel)}环形图">${arcs}</svg>
         <div class="donut-center">
-          <span class="donut-center-label">总支出</span>
-          <span class="donut-center-value">¥${fmtMoney(total)}</span>
+          <span class="donut-center-label">${escapeHtml(centerLabel)}</span>
+          <span class="donut-center-value${centerClass ? ' ' + centerClass : ''}">${centerValue}</span>
         </div>
       </div>
       <ul class="legend">${legend}</ul>
     </div>`;
 }
 
-/* ==================== 图表：近6个月收支趋势（柱状图） ==================== */
+// 分类占比环形图（支出 / 收入通用）：前 5 类 + 「其他」，最多 6 段
+function renderDonut(el, cats, opts) {
+  const total = cats.reduce((s, c) => s + c.total, 0);
+
+  if (!cats.length || total <= 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <p class="empty-title">${opts.emptyTitle}</p>
+        <p class="empty-hint">${opts.emptyHint}</p>
+      </div>`;
+    return;
+  }
+
+  const segs = cats.slice(0, 5).map((c, i) => ({ name: c.name, total: c.total, color: DONUT_COLORS[i] }));
+  const rest = cats.slice(5);
+  if (rest.length) {
+    segs.push({ name: '其他', total: rest.reduce((s, c) => s + c.total, 0), color: '#94a3b8' });
+  }
+
+  el.innerHTML = buildDonutHtml(segs, total, opts.centerLabel, `¥${fmtMoney(total)}`);
+}
+
+// 收支结余环形图：支出 vs 收入 两段，中心显示结余（正=绿，负=红）
+function renderBalanceDonut(el, expenseCents, incomeCents) {
+  const total = expenseCents + incomeCents;
+
+  if (total <= 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <p class="empty-title">本月还没有收支</p>
+        <p class="empty-hint">记几笔支出和收入后，这里能看到结余情况</p>
+      </div>`;
+    return;
+  }
+
+  const segs = [
+    { name: '支出', total: expenseCents, color: '#ef4444' },
+    { name: '收入', total: incomeCents, color: '#10b981' }
+  ];
+  const balance = incomeCents - expenseCents;
+  const balText = (balance < 0 ? '-' : '') + '¥' + fmtMoney(Math.abs(balance));
+  const cls = balance >= 0 ? 'pos' : 'neg';
+  el.innerHTML = buildDonutHtml(segs, total, '本月结余', balText, cls);
+}
+
+/* ==================== 图表：收支趋势（柱状图，范围可选） ==================== */
 
 // 把「分」换成好读的元：52.5 → "52.5"、1800 → "1,800"
 function fmtYuan(cents) {
@@ -655,20 +729,83 @@ function barPath(x, y, w, h, r = 4) {
   return `M${x} ${y + h}L${x} ${y + rr}Q${x} ${y} ${x + rr} ${y}H${x + w - rr}Q${x + w} ${y} ${x + w} ${y + rr}V${y + h}Z`;
 }
 
-function renderTrend(trend) {
+// 年月 → "YYYY-MM"（给月份选择框用）
+function ymToStr(y, m) { return `${y}-${String(m).padStart(2, '0')}`; }
+
+// "YYYY-MM" → {year, month}；空值返回 null
+function parseYm(value) {
+  if (!value) return null;
+  const [y, m] = value.split('-').map(Number);
+  return (y && m) ? { year: y, month: m } : null;
+}
+
+// 以当前月为终点，「近 N 个月」的起始月（比如近3个月 = 前2个月到本月）
+function trendStartFor(months) {
+  const c = currentYm();
+  const d = new Date(c.year, c.month - months, 1);   // 月份做减法自动进位/退位
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+// 初始化趋势范围控件：默认「近6个月」，结束月不能选未来
+function initTrendInputs() {
+  const c = currentYm();
+  const s = trendStartFor(6);
+  document.getElementById('trendStart').value = ymToStr(s.year, s.month);
+  document.getElementById('trendEnd').value = ymToStr(c.year, c.month);
+  document.getElementById('trendStart').max = ymToStr(c.year, c.month);
+  document.getElementById('trendEnd').max = ymToStr(c.year, c.month);
+}
+
+// 按当前选好的「从…到…」重新画趋势图
+async function renderTrendRange() {
   const el = document.getElementById('statsTrend');
-  const maxVal = Math.max(...trend.flatMap(m => [m.expense, m.income]), 1);
+  let s = parseYm(document.getElementById('trendStart').value);
+  let e = parseYm(document.getElementById('trendEnd').value);
+  if (!s || !e) return;
+  // 起点晚于终点就交换，保证区间有效
+  if (s.year * 12 + s.month > e.year * 12 + e.month) { const t = s; s = e; e = t; }
+  try {
+    const list = await window.blackhorse.getMonthlyTrend(s.year, s.month, e.year, e.month);
+    renderTrend(el, list);
+  } catch (err) {
+    console.error('加载趋势失败：', err);
+  }
+}
+
+// 快捷按钮：近3 / 近6 / 近12 / 全部
+async function setTrendQuick(months) {
+  const c = currentYm();
+  if (months === 'all') {
+    const range = await window.blackhorse.getDateRange();
+    if (range) {
+      const s = { year: Number(range.minDate.slice(0, 4)), month: Number(range.minDate.slice(5, 7)) };
+      document.getElementById('trendStart').value = ymToStr(s.year, s.month);
+    } else {
+      document.getElementById('trendStart').value = ymToStr(c.year, c.month);
+    }
+    document.getElementById('trendEnd').value = ymToStr(c.year, c.month);
+  } else {
+    const s = trendStartFor(months);
+    document.getElementById('trendStart').value = ymToStr(s.year, s.month);
+    document.getElementById('trendEnd').value = ymToStr(c.year, c.month);
+  }
+  document.querySelectorAll('.range-pill').forEach(p => p.classList.toggle('active', String(p.dataset.months) === String(months)));
+  renderTrendRange();
+}
+
+function renderTrend(el, list) {
+  const maxVal = Math.max(...list.flatMap(m => [m.expense, m.income]), 1);
 
   if (maxVal <= 0) {
     el.innerHTML = `
       <div class="empty-state">
-        <p class="empty-title">还没有收支记录</p>
-        <p class="empty-hint">记录几笔后，这里会显示近6个月的收支走势</p>
+        <p class="empty-title">这个范围还没有收支记录</p>
+        <p class="empty-hint">换个更早的时间范围，或先记几笔账</p>
       </div>`;
     return;
   }
 
-  const W = 640, H = 230, padL = 52, padR = 14, padT = 20, padB = 30;
+  const W = 640, H = 240, padL = 52, padR = 14, padT = 22, padB = 32;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const yMax = niceCeilYuan(maxVal);        // 纵轴最大值（元）
   const yMaxCents = yMax * 100;
@@ -683,14 +820,14 @@ function renderTrend(trend) {
     grid += `<text x="${padL - 8}" y="${(yy + 4).toFixed(1)}" text-anchor="end" class="axis-label">${fmtAxisYuan(v)}</text>`;
   }
 
-  // 每个月画两根柱子：支出（红）+ 收入（绿），中间留缝
-  const n = trend.length;
+  const n = list.length;
   const groupW = plotW / n;
-  const barW = Math.min(24, groupW * 0.26);
-  const gap = 3;
+  const barW = Math.max(3, Math.min(24, groupW * 0.28));
+  const gap = n > 20 ? 1 : 3;                      // 月份很多时，柱子间的缝留小一点
+  const step = Math.max(1, Math.ceil(n / 12));     // 月份很多时，横轴隔几个月标一次
   let bars = '';
 
-  trend.forEach((m, i) => {
+  list.forEach((m, i) => {
     const x0 = padL + groupW * i + (groupW - barW * 2 - gap) / 2;
     const xExp = x0;
     const xInc = x0 + barW + gap;
@@ -701,7 +838,7 @@ function renderTrend(trend) {
       const hExp = m.expense / yMaxCents * plotH;
       const yExp = y(m.expense);
       bars += `<path d="${barPath(xExp, yExp, barW, hExp)}" fill="#ef4444"><title>${m.year}年${m.month}月 支出 ¥${fmtYuan(m.expense)}</title></path>`;
-      if (hExp >= 16) {
+      if (n <= 8 && hExp >= 16) {
         bars += `<text x="${cxExp.toFixed(1)}" y="${(yExp - 6).toFixed(1)}" text-anchor="middle" class="tip-label">${fmtYuan(m.expense)}</text>`;
       }
     }
@@ -709,14 +846,17 @@ function renderTrend(trend) {
       const hInc = m.income / yMaxCents * plotH;
       const yInc = y(m.income);
       bars += `<path d="${barPath(xInc, yInc, barW, hInc)}" fill="#10b981"><title>${m.year}年${m.month}月 收入 ¥${fmtYuan(m.income)}</title></path>`;
-      if (hInc >= 16) {
+      if (n <= 8 && hInc >= 16) {
         bars += `<text x="${cxInc.toFixed(1)}" y="${(yInc - 6).toFixed(1)}" text-anchor="middle" class="tip-label">${fmtYuan(m.income)}</text>`;
       }
     }
 
-    // 月份标签（1 月带上年份，跨年也看得清）
-    const label = m.month === 1 ? `${m.year % 100}年1月` : `${m.month}月`;
-    bars += `<text x="${(x0 + barW + gap / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="axis-label">${label}</text>`;
+    // 横轴月份标签：月份很多时隔几步标一次，第一月和最后一月一定标
+    const showLabel = (i % step === 0) || i === n - 1;
+    if (showLabel) {
+      const label = m.month === 1 ? `${m.year}年1月` : `${m.month}月`;
+      bars += `<text x="${(x0 + barW + gap / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="axis-label">${label}</text>`;
+    }
   });
 
   el.innerHTML = `
@@ -725,7 +865,7 @@ function renderTrend(trend) {
       <span class="trend-legend-item"><span class="legend-dot" style="background:#10b981"></span>收入</span>
     </div>
     <div class="trend-chart">
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近6个月收支趋势柱状图">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="收支趋势柱状图">
         ${grid}${bars}
       </svg>
     </div>`;
@@ -740,7 +880,21 @@ function fmtAxisYuan(yuan) {
   return yuan.toLocaleString('en-US');
 }
 
+// 趋势范围控件的事件
+document.querySelectorAll('.range-pill').forEach(pill => {
+  pill.addEventListener('click', () => setTrendQuick(pill.dataset.months));
+});
+document.getElementById('trendStart').addEventListener('change', () => {
+  document.querySelectorAll('.range-pill').forEach(p => p.classList.remove('active'));
+  renderTrendRange();
+});
+document.getElementById('trendEnd').addEventListener('change', () => {
+  document.querySelectorAll('.range-pill').forEach(p => p.classList.remove('active'));
+  renderTrendRange();
+});
+
 /* ==================== 启动 ==================== */
 
 refreshOverview();
 setType('expense');
+initTrendInputs();   // 设置趋势图默认范围（近6个月）
