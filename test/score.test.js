@@ -11,6 +11,11 @@ const { readHighScore, writeHighScore } = require('../score.js');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'snake-hs-'));
 const file = path.join(dir, 'snake_highscore.json');
 
+// 考完退出前，把临时文件夹删掉，不给系统留垃圾
+process.on('exit', () => {
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { /* 删不掉也不管 */ }
+});
+
 let passed = 0;
 function check(name, fn) { fn(); passed++; console.log('✓', name); }
 
