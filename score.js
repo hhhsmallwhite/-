@@ -21,16 +21,19 @@ function readHighScore(filePath) {
   }
 }
 
-// 写最高分：负数按 0、小数向下取整；写失败静默忽略，游戏不受影响
+// 写最高分：负数按 0、小数向下取整。
+// 返回 { ok, value }：ok 表示是否真正写进了文件。
+// 以前写失败是"静默忽略"，界面会假装存好了、下次打开又变回旧纪录；
+// 现在如实报告，界面拿到 ok:false 就不会假装成功。
 function writeHighScore(filePath, score) {
   const n = Math.max(0, Math.floor(Number(score) || 0));
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify({ highScore: n }), 'utf8');
   } catch (e) {
-    /* 写不上就算了 */
+    return { ok: false, value: n };
   }
-  return n;
+  return { ok: true, value: n };
 }
 
 module.exports = { readHighScore, writeHighScore };

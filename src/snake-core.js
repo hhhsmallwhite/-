@@ -53,10 +53,12 @@
   }
 
   // 转向：不能直接掉头（向右时不能直接按左）
+  // 掉头判断以「排队中的方向」为准（而不是上一帧实际方向），
+  // 这样一帧内连按「上→左」两个方向，第二个不会被误吞。
   function turn(game, key) {
     const d = keyToDir(key);
     if (!d) return false;
-    const cur = DIRS[game.dir];
+    const cur = DIRS[game.nextDir];
     const next = DIRS[d];
     const isReverse = cur.x + next.x === 0 && cur.y + next.y === 0;
     if (isReverse) return false;

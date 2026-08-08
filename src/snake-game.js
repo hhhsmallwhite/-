@@ -44,6 +44,7 @@ function beep(freq, dur, type) {
 }
 const soundEat = () => beep(800, 0.12, 'triangle');   // 吃到食物：清脆的叮
 const soundOver = () => beep(220, 0.35, 'sawtooth');  // 游戏结束：低沉一声
+const soundWin = () => { beep(660, 0.12, 'triangle'); setTimeout(() => beep(880, 0.15, 'triangle'), 130); };  // 胜利：欢快的两声
 
 /* ---------- 画画面 ---------- */
 function draw() {
@@ -124,9 +125,13 @@ function startTick() {
     SnakeCore.step(game);
     draw();
     if (game.score > before) { updateScore(); soundEat(); }   // 吃到食物：叮 + 加分
-    if (game.status === 'over' || game.status === 'win') {
+    if (game.status === 'over') {
       stopTick();
       soundOver();
+      finishGame();
+    } else if (game.status === 'win') {
+      stopTick();
+      soundWin();
       finishGame();
     }
   }, TICK_MS);
@@ -154,16 +159,24 @@ function resumeGame() {
 
 async function finishGame() {
   const won = game.status === 'win';
-  setOverlay(
-    won ? '🎉 大获全胜！' : '游戏结束',
-    `本次得分 ${game.score}，按回车键再来一局`
-  );
-  // 破了纪录就更新并保存
+  let hint = `本次得分 ${game.score}，按回车键再来一局`;
+
+  // 破了纪录就更新并保存；存失败就如实说，不假装存好了
   if (game.score > highScore) {
-    highScore = game.score;
-    gameHighEl.textContent = String(highScore);
-    try { await window.tiantian.setHighScore(highScore); } catch (e) { /* 存不上就算了 */ }
+    let saved = false;
+    try {
+      const res = await window.tiantian.setHighScore(game.score);
+      saved = !!(res && res.ok);
+    } catch (e) { /* 接口异常按没存上处理 */ }
+    if (saved) {
+      highScore = game.score;
+      gameHighEl.textContent = String(highScore);
+    } else {
+      hint = `本次得分 ${game.score}（最高分保存失败，下次打开可能回到旧纪录）`;
+    }
   }
+
+  setOverlay(won ? '🎉 大获全胜！' : '游戏结束', hint);
 }
 
 /* ---------- 键盘操作 ---------- */
@@ -178,19 +191,22 @@ document.addEventListener('keydown', (e) => {
   if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
     e.preventDefault();                 // 防止方向键滚动页面
     if (!game) return;
-    if (game.status === 'ready') startGame();
-    if (game.status === 'playing') SnakeCore.turn(game, k);
+    // 游戏中或暂停时按方向键：记下方向（暂停时也记住，恢复后生效）。
+    // 开局不自动开始（按回车或点按钮才开始），避免"第一下方向键被吞 + 误开局"。
+    if (game.status === 'playing' || game.status === 'paused') SnakeCore.turn(game, k);
     return;
   }
-  if (k === ' ') {                      // 空格：暂停 / 继续
+  if (k === ' ') {                      // 空格：暂停 / 继续（按住连发只算一次）
     e.preventDefault();
+    if (e.repeat) return;
     if (!game) return;
     if (game.status === 'playing') pauseGame();
     else if (game.status === 'paused') resumeGame();
     return;
   }
-  if (k === 'Enter') {                  // 回车：开始 / 继续 / 再来一局
+  if (k === 'Enter') {                  // 回车：开始 / 继续 / 再来一局（连发只算一次）
     e.preventDefault();
+    if (e.repeat) return;
     if (!game) return;
     if (game.status === 'ready' || game.status === 'over' || game.status === 'win' || game.status === 'paused') startGame();
     return;
@@ -205,11 +221,24 @@ gameStartBtn.addEventListener('click', () => {
   startGame();
 });
 
-/* ---------- 切到别的页面：蛇还在走就自动暂停 ---------- */
+/* ---------- 离开"能玩的状态"就自动暂停 ---------- */
+// 1) 切到别的页面：蛇还在走就自动暂停
 document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.dataset.page !== 'game' && game && game.status === 'playing') pauseGame();
   });
+});
+// 2) 打开「记一笔」弹窗：弹窗挡住屏幕，蛇必须停下，否则会悄悄撞死
+const addModalEl = document.getElementById('addModal');
+new MutationObserver(() => {
+  if (!addModalEl.classList.contains('hidden') && game && game.status === 'playing') pauseGame();
+}).observe(addModalEl, { attributes: true, attributeFilter: ['class'] });
+// 3) 窗口被切走 / 最小化 / 看不见：自动暂停，回来不会发现蛇死了
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && game && game.status === 'playing') pauseGame();
+});
+window.addEventListener('blur', () => {
+  if (game && game.status === 'playing') pauseGame();
 });
 
 /* ---------- 启动 ---------- */

@@ -34,13 +34,21 @@ check('不能直接掉头（向右时按左无效）', () => {
   assert.strictEqual(g.nextDir, 'right');
 });
 
-check('可以转向上、下', () => {
+check('向右时按上合法；上之后再按左合法（上→左不算掉头）', () => {
   const g = SnakeCore.createGame();
   g.status = 'playing';
   assert.strictEqual(SnakeCore.turn(g, 'ArrowUp'), true);
   assert.strictEqual(g.nextDir, 'up');
-  assert.strictEqual(SnakeCore.turn(g, 'ArrowDown'), true);
-  assert.strictEqual(g.nextDir, 'down');
+  assert.strictEqual(SnakeCore.turn(g, 'ArrowLeft'), true);
+  assert.strictEqual(g.nextDir, 'left');
+});
+
+check('上之后紧接着按下被拒绝（跟上一步成180°掉头）', () => {
+  const g = SnakeCore.createGame();
+  g.status = 'playing';
+  assert.strictEqual(SnakeCore.turn(g, 'ArrowUp'), true);
+  assert.strictEqual(SnakeCore.turn(g, 'ArrowDown'), false);
+  assert.strictEqual(g.nextDir, 'up');
 });
 
 check('吃到食物：变长1节、得分+1', () => {
