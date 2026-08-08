@@ -33,6 +33,7 @@
       "main.js",
       "db.js",
       "preload.js",
+      "score.js",
       "start.js",
       "src/**/*"
     ],

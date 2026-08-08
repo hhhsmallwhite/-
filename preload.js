@@ -34,5 +34,10 @@ contextBridge.exposeInMainWorld('tiantian', {
   deleteRecord: (id) => ipcRenderer.invoke('db:deleteRecord', id),
   // —— 阶段4 新增（导出备份）——
   // 把全部账目导出成 CSV 文件（会弹出「保存位置」窗口），返回 { ok, path, count } 或 { ok:false, canceled }
-  exportCsv: () => ipcRenderer.invoke('export:exportCsv')
+  exportCsv: () => ipcRenderer.invoke('export:exportCsv'),
+  // —— 贪吃蛇（阶段6）新增：最高分读/写 ——
+  // 读历史最高分（文件不存在时返回 0）
+  getHighScore: () => ipcRenderer.invoke('game:getHighScore'),
+  // 保存新最高分，返回保存后的值
+  setHighScore: (score) => ipcRenderer.invoke('game:setHighScore', score)
 });

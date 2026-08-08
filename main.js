@@ -10,6 +10,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db'); // 数据库管家（见 db.js）
+const scoreStore = require('./score'); // 贪吃蛇最高分小文件读写（见 score.js）
 
 function createWindow() {
   // 创建一个窗口（1000×700，最小 800×600）
@@ -69,6 +70,10 @@ function registerIpcHandlers() {
   ipcMain.handle('db:deleteRecord', (_event, id) => db.deleteRecord(id));
   // —— 阶段4 新增（导出备份）——
   ipcMain.handle('export:exportCsv', exportCsv);
+  // —— 贪吃蛇（阶段6）新增：最高分读/写 ——
+  const highScoreFile = () => path.join(app.getPath('userData'), 'snake_highscore.json');
+  ipcMain.handle('game:getHighScore', () => scoreStore.readHighScore(highScoreFile()));
+  ipcMain.handle('game:setHighScore', (_event, score) => scoreStore.writeHighScore(highScoreFile(), score));
 }
 
 /**
