@@ -41,6 +41,12 @@
           </span>
           <span>设置</span>
         </button>
+        <button class="nav-item" data-page="game">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>
+          </span>
+          <span>小游戏</span>
+        </button>
       </nav>
 
       <button class="add-btn" id="openAddBtn">
@@ -244,6 +250,40 @@
             导出 CSV 备份
           </button>
           <p class="export-status" id="exportStatus" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <!-- 小游戏页（贪吃蛇） -->
+      <section class="page" id="page-game">
+        <header class="page-header">
+          <h1>小游戏</h1>
+          <p class="page-sub">记账累了？来玩一局贪吃蛇放松一下</p>
+        </header>
+
+        <div class="card game-card">
+          <div class="game-scores">
+            <div class="game-score">
+              <span class="game-score-label">当前分数</span>
+              <span class="game-score-value" id="gameScore">0</span>
+            </div>
+            <div class="game-score">
+              <span class="game-score-label">历史最高</span>
+              <span class="game-score-value" id="gameHigh">0</span>
+            </div>
+          </div>
+
+          <div class="game-board">
+            <canvas id="gameCanvas" width="400" height="400" aria-label="贪吃蛇游戏棋盘"></canvas>
+            <div class="game-overlay" id="gameOverlay">
+              <p class="game-overlay-title" id="gameOverlayTitle">贪吃蛇</p>
+              <p class="game-overlay-hint" id="gameOverlayHint">按回车键或点下方按钮开始</p>
+            </div>
+          </div>
+
+          <div class="game-controls">
+            <button class="game-start-btn" id="gameStartBtn">开始游戏</button>
+          </div>
+          <p class="game-hint">操作：↑ ↓ ← → 方向键转向 · 空格键暂停/继续 · 回车键开始/再来一局</p>
         </div>
       </section>
 

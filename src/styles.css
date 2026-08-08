@@ -1037,3 +1037,86 @@ input, textarea { caret-color: var(--green); }
     transition: none !important;
   }
 }
+
+/* ============ 小游戏页（贪吃蛇） ============ */
+.game-card {
+  max-width: 520px;
+  text-align: center;
+}
+
+.game-scores {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 18px;
+}
+
+.game-score { display: flex; flex-direction: column; align-items: center; }
+
+.game-score-label { font-size: 12px; color: var(--text-muted); }
+
+.game-score-value {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.game-board {
+  position: relative;
+  width: 400px;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  background: #f8faf9;
+}
+
+.game-board canvas { display: block; width: 100%; height: auto; }
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: blur(2px);
+  z-index: 5;
+}
+
+.game-overlay-title { font-size: 22px; font-weight: 700; color: var(--green-ink); }
+.game-overlay-hint { font-size: 13px; color: var(--text-muted); }
+
+.game-controls { margin-top: 18px; }
+
+.game-start-btn {
+  padding: 12px 34px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--green), var(--green-deep));
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: filter .15s, transform .15s, box-shadow .15s;
+}
+
+.game-start-btn:hover {
+  filter: brightness(1.06);
+  box-shadow: var(--shadow-md);
+}
+
+.game-start-btn:active { transform: scale(.98); }
+
+.game-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
