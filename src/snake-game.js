@@ -1,0 +1,226 @@
+/**
+ * 贪吃蛇 —— 界面集成
+ *
+ * 大白话：这个文件负责「画面和操作」：把棋盘画出来、听键盘、走时钟、发声，
+ * 以及读写最高分。游戏规则本身在 src/snake-core.js 里。
+ * 这个文件完全独立，不影响记账的任何代码。
+ */
+
+/* ---------- 元素 ---------- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const CELL = canvas.width / SnakeCore.SIZE;
+
+const gameScoreEl = document.getElementById('gameScore');
+const gameHighEl = document.getElementById('gameHigh');
+const gameOverlay = document.getElementById('gameOverlay');
+const gameOverlayTitle = document.getElementById('gameOverlayTitle');
+const gameOverlayHint = document.getElementById('gameOverlayHint');
+const gameStartBtn = document.getElementById('gameStartBtn');
+
+/* ---------- 状态 ---------- */
+let game = null;       // 当前这一局（SnakeCore.createGame() 的返回值）
+let tickTimer = null;  // 走步定时器句柄
+let highScore = 0;     // 历史最高分
+const TICK_MS = 150;   // 固定速度：每 150ms 动一格
+
+/* ---------- 声音：程序自带电子发声（Web Audio），不下载任何文件 ---------- */
+let audioCtx = null;
+function beep(freq, dur, type) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'square';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* 没声音就安静地玩，不打扰 */ }
+}
+const soundEat = () => beep(800, 0.12, 'triangle');   // 吃到食物：清脆的叮
+const soundOver = () => beep(220, 0.35, 'sawtooth');  // 游戏结束：低沉一声
+
+/* ---------- 画画面 ---------- */
+function draw() {
+  if (!game) return;
+  const s = game.size;
+
+  // 底色
+  ctx.fillStyle = '#f8faf9';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 浅格线（每格 20px）
+  ctx.strokeStyle = '#e3eae7';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= s; i++) {
+    ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(canvas.width, i * CELL); ctx.stroke();
+  }
+
+  // 食物（红色小圆角方块）
+  if (game.food) {
+    ctx.fillStyle = '#ef4444';
+    const fx = game.food.x * CELL, fy = game.food.y * CELL;
+    ctx.beginPath();
+    ctx.roundRect(fx + 3, fy + 3, CELL - 6, CELL - 6, 5);
+    ctx.fill();
+  }
+
+  // 蛇（头部颜色深一档）
+  game.snake.forEach((seg, i) => {
+    const isHead = i === 0;
+    ctx.fillStyle = isHead ? '#059669' : '#10b981';
+    const x = seg.x * CELL, y = seg.y * CELL;
+    ctx.beginPath();
+    ctx.roundRect(x + 1, y + 1, CELL - 2, CELL - 2, isHead ? 6 : 4);
+    ctx.fill();
+  });
+}
+
+/* ---------- 遮罩（开始/暂停/结束提示） ---------- */
+function setOverlay(title, hint) {
+  gameOverlayTitle.textContent = title;
+  gameOverlayHint.textContent = hint;
+  gameOverlay.classList.remove('hidden');
+}
+
+function hideOverlay() {
+  gameOverlay.classList.add('hidden');
+}
+
+/* ---------- 分数显示 ---------- */
+function updateScore() {
+  if (game) gameScoreEl.textContent = String(game.score);
+}
+
+/* ---------- 一局的开始与结束 ---------- */
+function newGame() {
+  stopTick();
+  game = SnakeCore.createGame();
+  draw();
+  setOverlay('贪吃蛇', '按回车键或点下方按钮开始');
+  updateScore();
+}
+
+function startGame() {
+  if (!game) game = SnakeCore.createGame();
+  if (game.status === 'over' || game.status === 'win') game = SnakeCore.createGame();
+  game.status = 'playing';
+  hideOverlay();
+  startTick();
+  updateScore();
+}
+
+function startTick() {
+  stopTick();
+  tickTimer = setInterval(() => {
+    if (!game || game.status !== 'playing') return;
+    const before = game.score;
+    SnakeCore.step(game);
+    draw();
+    if (game.score > before) { updateScore(); soundEat(); }   // 吃到食物：叮 + 加分
+    if (game.status === 'over' || game.status === 'win') {
+      stopTick();
+      soundOver();
+      finishGame();
+    }
+  }, TICK_MS);
+}
+
+function stopTick() {
+  if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+}
+
+function pauseGame() {
+  if (game && game.status === 'playing') {
+    game.status = 'paused';
+    stopTick();
+    setOverlay('已暂停', '按空格键继续');
+  }
+}
+
+function resumeGame() {
+  if (game && game.status === 'paused') {
+    game.status = 'playing';
+    hideOverlay();
+    startTick();
+  }
+}
+
+async function finishGame() {
+  const won = game.status === 'win';
+  setOverlay(
+    won ? '🎉 大获全胜！' : '游戏结束',
+    `本次得分 ${game.score}，按回车键再来一局`
+  );
+  // 破了纪录就更新并保存
+  if (game.score > highScore) {
+    highScore = game.score;
+    gameHighEl.textContent = String(highScore);
+    try { await window.tiantian.setHighScore(highScore); } catch (e) { /* 存不上就算了 */ }
+  }
+}
+
+/* ---------- 键盘操作 ---------- */
+document.addEventListener('keydown', (e) => {
+  // 只在「小游戏」页、没在打字、没开着记账弹窗时响应
+  if (!document.getElementById('page-game').classList.contains('active')) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  if (!document.getElementById('addModal').classList.contains('hidden')) return;
+
+  const k = e.key;
+
+  if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+    e.preventDefault();                 // 防止方向键滚动页面
+    if (!game) return;
+    if (game.status === 'ready') startGame();
+    if (game.status === 'playing') SnakeCore.turn(game, k);
+    return;
+  }
+  if (k === ' ') {                      // 空格：暂停 / 继续
+    e.preventDefault();
+    if (!game) return;
+    if (game.status === 'playing') pauseGame();
+    else if (game.status === 'paused') resumeGame();
+    return;
+  }
+  if (k === 'Enter') {                  // 回车：开始 / 继续 / 再来一局
+    e.preventDefault();
+    if (!game) return;
+    if (game.status === 'ready' || game.status === 'over' || game.status === 'win' || game.status === 'paused') startGame();
+    return;
+  }
+});
+
+/* ---------- 开始按钮 ---------- */
+gameStartBtn.addEventListener('click', () => {
+  if (!game) return;
+  if (game.status === 'playing') return;              // 正在玩，按钮不打扰
+  if (game.status === 'paused') { resumeGame(); return; }
+  startGame();
+});
+
+/* ---------- 切到别的页面：蛇还在走就自动暂停 ---------- */
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.page !== 'game' && game && game.status === 'playing') pauseGame();
+  });
+});
+
+/* ---------- 启动 ---------- */
+async function initGamePage() {
+  try {
+    highScore = await window.tiantian.getHighScore();
+  } catch (e) {
+    highScore = 0;
+  }
+  gameHighEl.textContent = String(highScore);
+  newGame();
+}
+
+initGamePage();
