@@ -17,6 +17,11 @@ const gameOverlay = document.getElementById('gameOverlay');
 const gameOverlayTitle = document.getElementById('gameOverlayTitle');
 const gameOverlayHint = document.getElementById('gameOverlayHint');
 const gameStartBtn = document.getElementById('gameStartBtn');
+const pageGameEl = document.getElementById('page-game');   // 小游戏页面（缓存，按键时不用重新找）
+const addModalEl = document.getElementById('addModal');    // 「记一笔」弹窗（缓存，判断是否挡着屏）
+
+// 记账弹窗是否开着（弹窗挡着就不能操作蛇）
+function isModalOpen() { return !addModalEl.classList.contains('hidden'); }
 
 /* ---------- 状态 ---------- */
 let game = null;       // 当前这一局（SnakeCore.createGame() 的返回值）
@@ -47,21 +52,26 @@ const soundOver = () => beep(220, 0.35, 'sawtooth');  // 游戏结束：低沉�
 const soundWin = () => { beep(660, 0.12, 'triangle'); setTimeout(() => beep(880, 0.15, 'triangle'), 130); };  // 胜利：欢快的两声
 
 /* ---------- 画画面 ---------- */
+// 背景（底色 + 浅格线）只在启动时画一次存起来，之后每帧直接整张贴上去，
+// 不用每 150ms 重新一条条画格线（省一点点时间，肉眼看不出差别，图个省心）。
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width = canvas.width;
+bgCanvas.height = canvas.height;
+(function () {
+  const bctx = bgCanvas.getContext('2d');
+  bctx.fillStyle = '#f8faf9';
+  bctx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+  bctx.strokeStyle = '#e3eae7';
+  bctx.lineWidth = 1;
+  for (let i = 0; i <= SnakeCore.SIZE; i++) {
+    bctx.beginPath(); bctx.moveTo(i * CELL, 0); bctx.lineTo(i * CELL, bgCanvas.height); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(0, i * CELL); bctx.lineTo(bgCanvas.width, i * CELL); bctx.stroke();
+  }
+})();
+
 function draw() {
   if (!game) return;
-  const s = game.size;
-
-  // 底色
-  ctx.fillStyle = '#f8faf9';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // 浅格线（每格 20px）
-  ctx.strokeStyle = '#e3eae7';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= s; i++) {
-    ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(canvas.width, i * CELL); ctx.stroke();
-  }
+  ctx.drawImage(bgCanvas, 0, 0);
 
   // 食物（红色小圆角方块）
   if (game.food) {
@@ -182,9 +192,9 @@ async function finishGame() {
 /* ---------- 键盘操作 ---------- */
 document.addEventListener('keydown', (e) => {
   // 只在「小游戏」页、没在打字、没开着记账弹窗时响应
-  if (!document.getElementById('page-game').classList.contains('active')) return;
+  if (!pageGameEl.classList.contains('active')) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-  if (!document.getElementById('addModal').classList.contains('hidden')) return;
+  if (isModalOpen()) return;
 
   const k = e.key;
 
@@ -208,7 +218,8 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (e.repeat) return;
     if (!game) return;
-    if (game.status === 'ready' || game.status === 'over' || game.status === 'win' || game.status === 'paused') startGame();
+    if (game.status === 'paused') resumeGame();
+    else if (game.status === 'ready' || game.status === 'over' || game.status === 'win') startGame();
     return;
   }
 });
@@ -229,9 +240,8 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   });
 });
 // 2) 打开「记一笔」弹窗：弹窗挡住屏幕，蛇必须停下，否则会悄悄撞死
-const addModalEl = document.getElementById('addModal');
 new MutationObserver(() => {
-  if (!addModalEl.classList.contains('hidden') && game && game.status === 'playing') pauseGame();
+  if (isModalOpen() && game && game.status === 'playing') pauseGame();
 }).observe(addModalEl, { attributes: true, attributeFilter: ['class'] });
 // 3) 窗口被切走 / 最小化 / 看不见：自动暂停，回来不会发现蛇死了
 document.addEventListener('visibilitychange', () => {

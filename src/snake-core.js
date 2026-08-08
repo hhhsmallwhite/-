@@ -23,13 +23,13 @@
     right: { x: 1,  y: 0 }
   };
 
-  // 方向键 / WASD 的按键名 → 方向
+  // 方向键 → 方向（按用户的决定，只认方向键，w/a/s/d 已删掉）
   function keyToDir(key) {
     switch (key) {
-      case 'ArrowUp': case 'w': case 'W': return 'up';
-      case 'ArrowDown': case 's': case 'S': return 'down';
-      case 'ArrowLeft': case 'a': case 'A': return 'left';
-      case 'ArrowRight': case 'd': case 'D': return 'right';
+      case 'ArrowUp': return 'up';
+      case 'ArrowDown': return 'down';
+      case 'ArrowLeft': return 'left';
+      case 'ArrowRight': return 'right';
       default: return null;
     }
   }
@@ -96,12 +96,14 @@
 
     const willEat = !!game.food && nx === game.food.x && ny === game.food.y;
 
-    // 撞自己：没吃到时尾巴这步会移走，所以不把尾巴算作障碍
-    const tail = game.snake[game.snake.length - 1];
-    const bodyToCheck = willEat ? game.snake : game.snake.slice(0, -1);
-    if (bodyToCheck.some(s => s.x === nx && s.y === ny)) {
-      game.status = 'over';
-      return false;
+    // 撞自己：没吃到时尾巴这步会移走，所以不把尾巴算作障碍。
+    // 只检查前几节（吃到时连尾巴一起算），不复制整条身体数组，省一点内存。
+    const bodyLen = willEat ? game.snake.length : game.snake.length - 1;
+    for (let i = 0; i < bodyLen; i++) {
+      if (game.snake[i].x === nx && game.snake[i].y === ny) {
+        game.status = 'over';
+        return false;
+      }
     }
 
     game.snake.unshift({ x: nx, y: ny });   // 新头长出来

@@ -70,7 +70,7 @@ function registerIpcHandlers() {
   ipcMain.handle('db:deleteRecord', (_event, id) => db.deleteRecord(id));
   // —— 阶段4 新增（导出备份）——
   ipcMain.handle('export:exportCsv', exportCsv);
-  // —— 贪吃蛇（阶段6）新增：最高分读/写 ——
+  // —— 贪吃蛇新增：最高分读/写（独立小游戏，与账本数据无关）——
   const highScoreFile = () => path.join(app.getPath('userData'), 'snake_highscore.json');
   ipcMain.handle('game:getHighScore', () => scoreStore.readHighScore(highScoreFile()));
   ipcMain.handle('game:setHighScore', (_event, score) => scoreStore.writeHighScore(highScoreFile(), score));

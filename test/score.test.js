@@ -11,18 +11,36 @@ const { readHighScore, writeHighScore } = require('../score.js');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'snake-hs-'));
 const file = path.join(dir, 'snake_highscore.json');
 
-assert.strictEqual(readHighScore(file), 0);            // 文件不存在 → 0
-assert.deepStrictEqual(writeHighScore(file, 5), { ok: true, value: 5 });    // 写入 5
-assert.strictEqual(readHighScore(file), 5);            // 读回 5
-assert.deepStrictEqual(writeHighScore(file, -3), { ok: true, value: 0 });   // 负数 → 0
-assert.deepStrictEqual(writeHighScore(file, 12.8), { ok: true, value: 12 }); // 小数 → 取整 12
-assert.strictEqual(readHighScore(file), 12);
-fs.writeFileSync(file, 'not json');                    // 文件坏了
-assert.strictEqual(readHighScore(file), 0);            // 坏文件 → 0
+let passed = 0;
+function check(name, fn) { fn(); passed++; console.log('✓', name); }
 
-// 写失败要如实报告：父目录的位置被一个文件占着，建不了目录 → 返回 { ok: false }
-const blocker = path.join(dir, 'blocker');
-fs.writeFileSync(blocker, 'x');
-assert.deepStrictEqual(writeHighScore(path.join(blocker, 'sub', 'x.json'), 3), { ok: false, value: 3 });
+check('文件不存在 → 读回 0', () => {
+  assert.strictEqual(readHighScore(file), 0);
+});
 
-console.log('✓ 最高分读写测试全部通过');
+check('写入 5 → 返回 { ok: true, value: 5 }，再读回 5', () => {
+  assert.deepStrictEqual(writeHighScore(file, 5), { ok: true, value: 5 });
+  assert.strictEqual(readHighScore(file), 5);
+});
+
+check('负数 → 按 0 存', () => {
+  assert.deepStrictEqual(writeHighScore(file, -3), { ok: true, value: 0 });
+});
+
+check('小数 → 向下取整 12', () => {
+  assert.deepStrictEqual(writeHighScore(file, 12.8), { ok: true, value: 12 });
+  assert.strictEqual(readHighScore(file), 12);
+});
+
+check('文件内容损坏 → 读回 0', () => {
+  fs.writeFileSync(file, 'not json');   // 先把文件写坏
+  assert.strictEqual(readHighScore(file), 0);
+});
+
+check('写失败如实报告：建不了目录 → 返回 { ok: false, value: 3 }', () => {
+  const blocker = path.join(dir, 'blocker');
+  fs.writeFileSync(blocker, 'x');   // 用一个文件占住父目录的位置
+  assert.deepStrictEqual(writeHighScore(path.join(blocker, 'sub', 'x.json'), 3), { ok: false, value: 3 });
+});
+
+console.log(`\n${passed} 项测试全部通过`);
