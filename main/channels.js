@@ -15,6 +15,10 @@
 const CHANNELS = [
   // 软件自己的信息（版本号之类）
   'app:getInfo',
+  // 打开日志文件夹（出问题时把日志发给开发者看）
+  'app:openLogsFolder',
+  // 界面报上来的错误，写进日志文件
+  'log:write',
 
   // 账本
   'db:addRecord',
@@ -27,8 +31,12 @@ const CHANNELS = [
   'db:updateRecord',
   'db:deleteRecord',
 
-  // 导出备份
+  // 导出备份 / 导回来 / 恢复整本备份
   'export:exportCsv',
+  'import:importCsv',
+  'backup:create',
+  'backup:restore',
+  'backup:info',
 
   // 贪吃蛇最高分
   'game:getHighScore',

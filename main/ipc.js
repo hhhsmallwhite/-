@@ -17,6 +17,7 @@ const { CHANNELS } = require('./channels');
 const validate = require('./validate');
 const db = require('../db');
 const score = require('../score');
+const logger = require('./logger');
 const { exportCsv } = require('./export-csv');
 
 /**
@@ -41,6 +42,11 @@ function asObject(payload, what) {
  * @param {{version: string, electron: string, platform: string}} ctx.appInfo 软件信息
  * @param {string} ctx.highScorePath 最高分文件路径
  * @param {(event: object) => Promise<object>} ctx.exportTo 真正执行导出的函数
+ * @param {() => object} ctx.backupCreate 立刻备份一份
+ * @param {(event: object) => Promise<object>} ctx.backupRestore 弹框选备份并恢复
+ * @param {() => object} ctx.backupInfo 备份现状
+ * @param {(event: object) => Promise<object>} ctx.importCsv 弹框选 CSV 并导入
+ * @param {() => Promise<object>} ctx.openLogsFolder 打开日志文件夹
  * @returns {number} 注册了多少个通道
  */
 function register(ipcMain, ctx) {
@@ -48,6 +54,15 @@ function register(ipcMain, ctx) {
   const handlers = {
     // —— 软件自己的信息 ——
     'app:getInfo': () => ctx.appInfo,
+
+    // —— 日志 ——
+    'app:openLogsFolder': () => ctx.openLogsFolder(),
+    'log:write': (_event, text) => {
+      // 界面报上来的错误：只收文字，最多 2000 字，防止被塞一大坨东西进日志文件
+      const message = String(text == null ? '' : text).slice(0, 2000);
+      if (message) logger.write(message);
+      return true;
+    },
 
     // —— 账本 ——
     'db:addRecord': (_event, input) => db.addRecord(validate.record(input)),
@@ -87,8 +102,12 @@ function register(ipcMain, ctx) {
 
     'db:deleteRecord': (_event, id) => db.deleteRecord(validate.id(id)),
 
-    // —— 导出备份 ——
+    // —— 导出备份 / 导回来 / 恢复整本备份 ——
     'export:exportCsv': (event) => ctx.exportTo(event),
+    'import:importCsv': (event) => ctx.importCsv(event),
+    'backup:create': () => ctx.backupCreate(),
+    'backup:restore': (event) => ctx.backupRestore(event),
+    'backup:info': () => ctx.backupInfo(),
 
     // —— 贪吃蛇最高分 ——
     'game:getHighScore': () => score.readHighScore(ctx.highScorePath),

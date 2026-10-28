@@ -81,6 +81,14 @@
       return Promise.resolve({ version: '预览模式', electron: '—', platform: '浏览器' });
     },
 
+    /** 日志：预览模式没有文件夹可开，也没有文件可写 */
+    openLogsFolder() {
+      return Promise.resolve({ ok: true, path: '（预览模式，没有日志文件夹）' });
+    },
+    reportError() {
+      return Promise.resolve(true);
+    },
+
     /** 新增一笔：补上 id 后放进内存，返回整条记录 */
     addRecord(record) {
       const row = { ...record, id: nextId++, amount: record.amountCents / 100, createdAt: record.createdAt || Date.now() };
@@ -169,6 +177,22 @@
     /** 导出：假桥不写文件，直接回一个"假装成功"的结果 */
     exportCsv() {
       return Promise.resolve({ ok: true, path: '（预览模式，不会真的写文件）', count: records.length });
+    },
+
+    /** 导入：预览模式没有文件可选 */
+    importCsv() {
+      return Promise.resolve({ ok: false, canceled: true });
+    },
+
+    /** 备份三件套：预览模式只在内存里假装一下 */
+    backupNow() {
+      return Promise.resolve({ ok: true, path: '（预览模式，不会真的写文件）' });
+    },
+    restoreBackup() {
+      return Promise.resolve({ ok: false, canceled: true });
+    },
+    getBackupInfo() {
+      return Promise.resolve({ count: 0, latest: null, dir: '（预览模式）' });
     },
 
     /** 最高分：存在内存里 */

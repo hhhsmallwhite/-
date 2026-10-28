@@ -8,7 +8,7 @@
  *   nodeIntegration: false  → 界面里拿不到 fs、child_process 这些能碰电脑的工具
  *   sandbox: true           → 界面跑在沙箱里，权限降到最低（只留 preload 那条通道）
  *
- * 界面唯一能办事的路，就是 preload.js 上开的那 13 个窗口（见 main/channels.js）。
+ * 界面唯一能办事的路，就是 preload.js 上开的那些窗口（清单见 main/channels.js）。
  * 这些开关只在这里设一次，别在别处改——安全设置散着写最容易出事。
  */
 

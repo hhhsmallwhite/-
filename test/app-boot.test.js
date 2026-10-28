@@ -88,6 +88,22 @@ async function main() {
   check('账本结构已升级到最新（迁移跑过了）', db.schemaVersion() === 2, `当前版本 ${db.schemaVersion()}`);
   check('临时账本一开始是空的', db.getAllRecords().length === 0);
 
+  /* ---------- 一·二、日志真的写起来了 ---------- */
+
+  const logsDir = path.join(tmp, 'profile', 'logs');
+  const logFiles = fs.existsSync(logsDir) ? fs.readdirSync(logsDir).filter((n) => /^main-\d{4}-\d{2}-\d{2}\.log$/.test(n)) : [];
+  check('日志文件已生成（按天分文件）', logFiles.length === 1, logFiles.join('、'));
+
+  const logPath = logFiles.length ? path.join(logsDir, logFiles[0]) : null;
+  const logText = logPath ? fs.readFileSync(logPath, 'utf8') : '';
+  check('日志里记下了版本和账本位置', /天天记账 v\d/.test(logText) && /账本位置/.test(logText));
+
+  // 界面报错 → 主进程 → 日志文件，这条链要通
+  await runInWindow(win, `window.tiantian.reportError('整机测试：故意报一个错')`);
+  await wait(150);
+  const logAfter = logPath ? fs.readFileSync(logPath, 'utf8') : '';
+  check('界面报的错能落进日志文件', /\[界面\] 整机测试：故意报一个错/.test(logAfter));
+
   /* ---------- 二、真 preload 挂上了，接口齐全 ---------- */
 
   const bridge = await runInWindow(win, `({
@@ -95,12 +111,13 @@ async function main() {
     methods: Object.keys(window.tiantian).sort()
   })`);
 
-  const required = ['addRecord', 'deleteRecord', 'exportCsv', 'getAppInfo', 'getCategoryTotals',
-    'getDateRange', 'getHighScore', 'getMonthlySummary', 'getMonthlyTrend', 'getRecentRecords',
-    'getRecordsByMonth', 'setHighScore', 'updateRecord'];
+  const required = ['addRecord', 'backupNow', 'deleteRecord', 'exportCsv', 'getAppInfo', 'getBackupInfo',
+    'getCategoryTotals', 'getDateRange', 'getHighScore', 'getMonthlySummary', 'getMonthlyTrend',
+    'getRecentRecords', 'getRecordsByMonth', 'importCsv', 'openLogsFolder', 'reportError',
+    'restoreBackup', 'setHighScore', 'updateRecord'];
   const missing = required.filter((m) => !bridge.methods.includes(m));
   check('真 preload 挂上了 window.tiantian', bridge.exists === true);
-  check('13 个接口一个不少', missing.length === 0, missing.length ? `缺 ${missing.join('、')}` : '全在');
+  check(`${required.length} 个接口一个不少`, missing.length === 0, missing.length ? `缺 ${missing.join('、')}` : '全在');
 
   /* ---------- 三、版本号来自 package.json，不是写死的 ---------- */
 

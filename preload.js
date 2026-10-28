@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld('tiantian', {
   // 免得出现「关于页面写着 0.1.0、实际装的是 0.2.0」这种自打嘴巴的情况
   getAppInfo: () => ipcRenderer.invoke('app:getInfo'),
 
+  // 打开日志文件夹（出问题时把这个文件夹里的文件发给开发者）
+  openLogsFolder: () => ipcRenderer.invoke('app:openLogsFolder'),
+
+  // 界面自己出错了，报给主进程写进日志。界面崩了是看不见控制台的，
+  // 只有写进文件，事后才查得到。
+  reportError: (text) => ipcRenderer.invoke('log:write', text).catch(() => false),
+
   // —— 记账相关 ——
 
   /** 新增一笔账，返回存好后的完整记录 */
@@ -49,10 +56,22 @@ contextBridge.exposeInMainWorld('tiantian', {
   /** 删除一笔账 */
   deleteRecord: (id) => ipcRenderer.invoke('db:deleteRecord', id),
 
-  // —— 导出备份 ——
+  // —— 导出备份 / 导回来 / 恢复整本备份 ——
 
   /** 把全部账目导出成 CSV（会弹「保存到哪儿」的框），返回 { ok, path, count } 或 { ok:false, canceled } */
   exportCsv: () => ipcRenderer.invoke('export:exportCsv'),
+
+  /** 选一个 CSV 把账导回来，返回 { ok, imported, skipped, problems } */
+  importCsv: () => ipcRenderer.invoke('import:importCsv'),
+
+  /** 立刻备份一份账本（不用等明天），返回 { ok, path } */
+  backupNow: () => ipcRenderer.invoke('backup:create'),
+
+  /** 选一份备份换回来（换之前会先把现在这本存一份），返回 { ok, count } */
+  restoreBackup: () => ipcRenderer.invoke('backup:restore'),
+
+  /** 备份现状：{ count, latest, dir } */
+  getBackupInfo: () => ipcRenderer.invoke('backup:info'),
 
   // —— 贪吃蛇最高分（跟账本无关，单独存一个小文件） ——
 

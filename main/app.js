@@ -11,15 +11,32 @@
  * 那才是最气人的体验。所以宁可打不开就明说。
  */
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const db = require('../db');
 const paths = require('./paths');
 const ipc = require('./ipc');
+const logger = require('./logger');
+const backup = require('./backup');
+const importCsv = require('./import-csv');
 const { exportCsv } = require('./export-csv');
 const { createWindow } = require('./window');
 
 // 当前的主窗口（第二实例被拦下时，要把它叫到前面来）
 let mainWindow = null;
+
+// 日志是否已经起来（避免重复接管 console）
+let loggerReady = false;
+
+/**
+ * 让日志系统就绪（只会真正初始化一次）。
+ * 之所以单独抽出来：start() 和测试里直接调 bootstrap() 都要用它，
+ * 而重复初始化会导致同一句话在日志里写两遍。
+ */
+function ensureLogger() {
+  if (loggerReady) return;
+  logger.init({ dir: paths.logsDir(app), keepDays: 7 });
+  loggerReady = true;
+}
 
 /**
  * 开窗口并把引用记下来
@@ -31,6 +48,54 @@ function openWindow() {
     mainWindow = null;
   });
   return mainWindow;
+}
+
+/**
+ * 弹框让用户挑一份备份，然后换回来。
+ * 换之前 backup.restore 会先把现在这本存一份（带 before-restore 前缀），
+ * 所以「手滑选错」也有得退。
+ * @param {BrowserWindow} win
+ * @returns {Promise<object>}
+ */
+async function pickBackupAndRestore(win) {
+  const dir = paths.backupDir(app);
+  const picked = await dialog.showOpenDialog(win, {
+    title: '选择要恢复的账本备份',
+    defaultPath: dir,
+    filters: [{ name: '账本备份', extensions: ['db'] }],
+    properties: ['openFile']
+  });
+
+  if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true };
+
+  const result = backup.restore({
+    dbPath: paths.dbPath(app),
+    dir,
+    sourcePath: picked.filePaths[0],
+    schemaVersion: db.schemaVersion()
+  }, db);
+
+  console.log(`恢复账本：${result.ok ? `成功，现有 ${result.count} 笔账` : result.error}`);
+  return result;
+}
+
+/**
+ * 弹框让用户挑一个 CSV，把里面的账导回账本
+ * @param {BrowserWindow} win
+ * @returns {Promise<object>}
+ */
+async function pickCsvAndImport(win) {
+  const picked = await dialog.showOpenDialog(win, {
+    title: '选择要导入的 CSV 表格',
+    filters: [{ name: 'CSV 表格', extensions: ['csv'] }],
+    properties: ['openFile']
+  });
+
+  if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true };
+
+  const result = importCsv.runImport({ db, filePath: picked.filePaths[0] });
+  console.log(`导入 CSV：新进 ${result.imported || 0} 笔，跳过重复 ${result.skipped || 0} 笔`);
+  return result;
 }
 
 /**
@@ -48,6 +113,7 @@ function registerIpc() {
       platform: process.platform === 'darwin' ? 'macOS' : 'Windows'
     },
     highScorePath: paths.highScorePath(app),
+
     // 导出要弹「保存到哪儿」，这是主进程才能干的事，用闭包把当下这个窗口传进去
     exportTo: (event) => {
       const win = BrowserWindow.fromWebContents(event.sender);
@@ -57,6 +123,21 @@ function registerIpc() {
         win,
         downloadsPath: app.getPath('downloads')
       });
+    },
+
+    // —— 备份与恢复 ——
+    backupCreate: () => backup.createNow({ dbPath: paths.dbPath(app), dir: paths.backupDir(app) }),
+    backupRestore: (event) => pickBackupAndRestore(BrowserWindow.fromWebContents(event.sender)),
+    backupInfo: () => backup.info(paths.backupDir(app)),
+
+    // —— 从 CSV 导回来 ——
+    importCsv: (event) => pickCsvAndImport(BrowserWindow.fromWebContents(event.sender)),
+
+    // —— 打开日志文件夹 ——
+    openLogsFolder: async () => {
+      const dir = paths.logsDir(app);
+      const error = await shell.openPath(dir);
+      return { ok: !error, path: dir, error: error || undefined };
     }
   });
 }
@@ -65,12 +146,22 @@ function registerIpc() {
  * 开机自检：打开账本 → 接电话线 → 开窗口
  */
 function bootstrap() {
+  ensureLogger();
+
   const file = paths.dbPath(app);
+  console.log(`===== 天天记账 v${require('../package.json').version} 启动 =====`);
 
   // 老用户（软件以前叫「黑马记账」）的账本要从旧文件夹搬过来
   if (paths.migrateLegacy(app, file)) {
     console.log('已把旧账本（黑马记账）搬到新位置：', file);
   }
+
+  // 关键顺序：备份放在「打开账本」之前。
+  // 这样每天那份一定是「今天动过之前」的原样——万一账本结构升级出岔子，
+  // 手里这份能原封不动换回去。同一天只备一次，避免开十次软件刷掉十份历史。
+  const copied = backup.backupIfNeeded({ dbPath: file, dir: paths.backupDir(app) });
+  if (copied.ok) console.log(`已自动备份账本：${copied.path}`);
+  else console.log(`本次未自动备份：${copied.skipped}`);
 
   db.open(file);
   console.log('账本位置：', file);
@@ -99,8 +190,12 @@ function failToStart(err) {
  * 启动整个软件
  */
 function start() {
+  // 日志先起来：连「第二个实例被拦下」这种事也值得记一笔
+  ensureLogger();
+
   // ① 只允许开一个实例：双击第二次时，把已经开着的窗口叫到前面来，而不是再开一个
   if (!app.requestSingleInstanceLock()) {
+    console.log('已有实例在运行，本次启动退出');
     app.quit();
     return;
   }

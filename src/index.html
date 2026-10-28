@@ -253,12 +253,30 @@
         </div>
 
         <div class="card">
+          <h2 class="card-title">备份与恢复</h2>
+          <p class="card-desc">
+            软件每天第一次打开时会自动把账本复制一份，最多保留 7 份。<br>
+            哪天数据出了问题，从备份换回来就行——换之前会先把当前这本再存一份，选错了也有得退。
+          </p>
+          <div class="btn-row">
+            <button class="soft-btn" id="backupNowBtn" type="button">立即备份</button>
+            <button class="soft-btn" id="restoreBackupBtn" type="button">从备份恢复</button>
+            <button class="soft-btn" id="importCsvBtn" type="button">导入 CSV</button>
+          </div>
+          <p class="export-status" id="backupStatus" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="card">
           <h2 class="card-title">关于</h2>
           <p class="card-desc">
             数据全部存在本机，不联网、不注册。账本文件在系统「用户数据文件夹」里，<br>
             想整本备份，把它拷到 U 盘即可；想给表格，用上面的「导出 CSV」。
           </p>
           <p class="app-version" id="appVersion"></p>
+          <div class="btn-row">
+            <button class="soft-btn" id="openLogsBtn" type="button">打开日志文件夹</button>
+          </div>
+          <p class="export-status" id="logsStatus" role="status" aria-live="polite"></p>
         </div>
       </section>
 

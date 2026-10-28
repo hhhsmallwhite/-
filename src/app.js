@@ -54,9 +54,33 @@
   TT.refreshAll = refreshAll;
 
   /**
+   * 把界面里没人接住的错误报给主进程，写进日志文件。
+   * 为什么要这么绕：正式软件没有控制台，界面崩了用户只会看到「白了一下」，
+   * 事后完全查不到原因。写进文件，才有东西可以发出来看。
+   * @param {string} text
+   */
+  function report(text) {
+    try {
+      window.tiantian.reportError(String(text).slice(0, 1000));
+    } catch (err) {
+      // 连报错都报不出去，那就真的没办法了，至少别把界面搞崩
+    }
+  }
+
+  /**
    * 启动：绑导航 → 叫醒各页面 → 首页取数
    */
   function boot() {
+    // 先挂上错误上报，后面任何一步出错都能留下痕迹
+    window.addEventListener('error', (event) => {
+      const file = event.filename ? event.filename.split(/[\\/]/).pop() : '未知文件';
+      report(`${event.message} @ ${file}:${event.lineno}`);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      report(`未处理的 Promise 拒绝：${reason && reason.message ? reason.message : reason}`);
+    });
+
     qa('.nav-item').forEach((btn) => {
       btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });

@@ -32,6 +32,24 @@ function highScorePath(app) {
 }
 
 /**
+ * 备份文件夹：账本的每日副本都放这儿
+ * @param {import('electron').App} app
+ * @returns {string}
+ */
+function backupDir(app) {
+  return path.join(app.getPath('userData'), 'backups');
+}
+
+/**
+ * 日志文件夹：软件运行记录和崩溃原因都写这儿
+ * @param {import('electron').App} app
+ * @returns {string}
+ */
+function logsDir(app) {
+  return path.join(app.getPath('userData'), 'logs');
+}
+
+/**
  * 从旧名字（黑马记账）的文件夹里，把老账本搬过来。
  * 只在「新位置还没有账本、旧位置有」的时候搬一次，之后就不再管了。
  * @param {import('electron').App} app
@@ -50,4 +68,4 @@ function migrateLegacy(app, targetPath) {
   return true;
 }
 
-module.exports = { dbPath, highScorePath, migrateLegacy };
+module.exports = { dbPath, highScorePath, backupDir, logsDir, migrateLegacy };

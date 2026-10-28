@@ -164,12 +164,25 @@ async function main() {
   check('趋势柱状图有柱子', stats.bars >= 4, `${stats.bars} 个图形`);
   await shoot(win, '3-stats');
 
-  /* ---------- 四、设置页 + 导出按钮 ---------- */
+  /* ---------- 四、设置页 + 导出/备份/恢复/导入/日志 五个入口 ---------- */
 
   await run(win, 'document.querySelector(\'.nav-item[data-page="settings"]\').click(); true');
-  await wait(250);
-  const settings = await run(win, '!!document.getElementById("exportCsvBtn") && !document.getElementById("page-settings").classList.contains("hidden")');
-  check('设置页能打开、导出按钮在', settings === true);
+  await wait(300);
+  const settings = await run(win, `({
+    exportBtn: !!document.getElementById('exportCsvBtn'),
+    backupBtn: !!document.getElementById('backupNowBtn'),
+    restoreBtn: !!document.getElementById('restoreBackupBtn'),
+    importBtn: !!document.getElementById('importCsvBtn'),
+    logsBtn: !!document.getElementById('openLogsBtn'),
+    backupText: document.getElementById('backupStatus').textContent,
+    version: document.getElementById('appVersion').textContent,
+    visible: document.getElementById('page-settings').classList.contains('active')
+  })`);
+  check('设置页能打开', settings.visible === true);
+  check('导出 / 备份 / 恢复 / 导入 四个按钮都在', settings.exportBtn && settings.backupBtn && settings.restoreBtn && settings.importBtn);
+  check('「打开日志文件夹」按钮在', settings.logsBtn === true);
+  check('备份现状那行字已填（没备份时给引导）', settings.backupText.length > 0, settings.backupText.slice(0, 24));
+  check('版本号那行已填（走主进程取，不是写死）', /版本/.test(settings.version), settings.version);
   await shoot(win, '4-settings');
 
   /* ---------- 五、小游戏页：画布 + 最高分 ---------- */

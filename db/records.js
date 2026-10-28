@@ -126,8 +126,42 @@ function deleteRecord(id) {
   return get().prepare('DELETE FROM records WHERE id = ?').run(id).changes;
 }
 
+/**
+ * 一次插入多笔（CSV 导入用）。
+ * 整批包在一个事务里：要么全部写进去，要么一笔都不写。
+ * 这样万一第 300 行出错，不会留下「前 299 行进去了、剩下的没进去」的半截账本。
+ * @param {object[]} list 已经过检查站的账目列表
+ * @returns {number} 实际写入的条数
+ */
+function addRecordsBatch(list) {
+  if (!Array.isArray(list) || list.length === 0) return 0;
+
+  const insert = get().prepare(`
+    INSERT INTO records (type, amount_cents, category_main, category_sub, note, date, created_at)
+    VALUES (@type, @amountCents, @categoryMain, @categorySub, @note, @date, @createdAt)
+  `);
+
+  const runAll = get().transaction((rows) => {
+    for (const record of rows) {
+      insert.run({
+        type: record.type,
+        amountCents: record.amountCents,
+        categoryMain: record.categoryMain,
+        categorySub: record.categorySub,
+        note: record.note || '',
+        date: record.date,
+        createdAt: record.createdAt || Date.now()
+      });
+    }
+    return rows.length;
+  });
+
+  return runAll(list);
+}
+
 module.exports = {
   addRecord,
+  addRecordsBatch,
   getRecordById,
   getRecentRecords,
   getRecordsByMonth,

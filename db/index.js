@@ -29,6 +29,7 @@ module.exports = {
 
   // —— 记一笔、改一笔、删一笔、查账 ——
   addRecord: records.addRecord,
+  addRecordsBatch: records.addRecordsBatch,
   getRecordById: records.getRecordById,
   getRecentRecords: records.getRecentRecords,
   getRecordsByMonth: records.getRecordsByMonth,

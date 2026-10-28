@@ -104,7 +104,7 @@ check('注册的顺序和清单完全一致', () => {
 check('账本模块对外暴露的方法齐全（重构时没弄丢）', () => {
   const expected = [
     'open', 'init', 'close', 'schemaVersion',
-    'addRecord', 'getRecordById', 'getRecentRecords', 'getRecordsByMonth',
+    'addRecord', 'addRecordsBatch', 'getRecordById', 'getRecentRecords', 'getRecordsByMonth',
     'getAllRecords', 'updateRecord', 'deleteRecord',
     'getMonthlySummary', 'getCategoryTotals', 'getMonthlyTrendRange', 'getDateRange'
   ];
