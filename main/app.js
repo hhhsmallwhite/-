@@ -17,7 +17,7 @@ const paths = require('./paths');
 const ipc = require('./ipc');
 const logger = require('./logger');
 const backup = require('./backup');
-const importCsv = require('./import-csv');
+const dialogs = require('./dialogs');
 const { exportCsv } = require('./export-csv');
 const { createWindow } = require('./window');
 
@@ -51,54 +51,6 @@ function openWindow() {
 }
 
 /**
- * 弹框让用户挑一份备份，然后换回来。
- * 换之前 backup.restore 会先把现在这本存一份（带 before-restore 前缀），
- * 所以「手滑选错」也有得退。
- * @param {BrowserWindow} win
- * @returns {Promise<object>}
- */
-async function pickBackupAndRestore(win) {
-  const dir = paths.backupDir(app);
-  const picked = await dialog.showOpenDialog(win, {
-    title: '选择要恢复的账本备份',
-    defaultPath: dir,
-    filters: [{ name: '账本备份', extensions: ['db'] }],
-    properties: ['openFile']
-  });
-
-  if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true };
-
-  const result = backup.restore({
-    dbPath: paths.dbPath(app),
-    dir,
-    sourcePath: picked.filePaths[0],
-    schemaVersion: db.schemaVersion()
-  }, db);
-
-  console.log(`恢复账本：${result.ok ? `成功，现有 ${result.count} 笔账` : result.error}`);
-  return result;
-}
-
-/**
- * 弹框让用户挑一个 CSV，把里面的账导回账本
- * @param {BrowserWindow} win
- * @returns {Promise<object>}
- */
-async function pickCsvAndImport(win) {
-  const picked = await dialog.showOpenDialog(win, {
-    title: '选择要导入的 CSV 表格',
-    filters: [{ name: 'CSV 表格', extensions: ['csv'] }],
-    properties: ['openFile']
-  });
-
-  if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true };
-
-  const result = importCsv.runImport({ db, filePath: picked.filePaths[0] });
-  console.log(`导入 CSV：新进 ${result.imported || 0} 笔，跳过重复 ${result.skipped || 0} 笔`);
-  return result;
-}
-
-/**
  * 注册全部通道（把 Electron 的 dialog、窗口这些东西接到 ipc.js 上）
  */
 function registerIpc() {
@@ -127,11 +79,21 @@ function registerIpc() {
 
     // —— 备份与恢复 ——
     backupCreate: () => backup.createNow({ dbPath: paths.dbPath(app), dir: paths.backupDir(app) }),
-    backupRestore: (event) => pickBackupAndRestore(BrowserWindow.fromWebContents(event.sender)),
+    backupRestore: (event) => dialogs.pickBackupAndRestore({
+      win: BrowserWindow.fromWebContents(event.sender),
+      dialog,
+      dbPath: paths.dbPath(app),
+      backupDir: paths.backupDir(app),
+      db
+    }),
     backupInfo: () => backup.info(paths.backupDir(app)),
 
     // —— 从 CSV 导回来 ——
-    importCsv: (event) => pickCsvAndImport(BrowserWindow.fromWebContents(event.sender)),
+    importCsv: (event) => dialogs.pickCsvAndImport({
+      win: BrowserWindow.fromWebContents(event.sender),
+      dialog,
+      db
+    }),
 
     // —— 打开日志文件夹 ——
     openLogsFolder: async () => {
