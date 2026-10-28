@@ -18,3 +18,6 @@ npm-debug.log*
 *.db
 *.sqlite
 
+
+# 界面冒烟测试的截图（每次跑会重新生成，不用存档）
+test/artifacts/

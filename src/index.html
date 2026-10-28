@@ -251,6 +251,15 @@
           </button>
           <p class="export-status" id="exportStatus" role="status" aria-live="polite"></p>
         </div>
+
+        <div class="card">
+          <h2 class="card-title">关于</h2>
+          <p class="card-desc">
+            数据全部存在本机，不联网、不注册。账本文件在系统「用户数据文件夹」里，<br>
+            想整本备份，把它拷到 U 盘即可；想给表格，用上面的「导出 CSV」。
+          </p>
+          <p class="app-version" id="appVersion"></p>
+        </div>
       </section>
 
       <!-- 小游戏页（贪吃蛇） -->
@@ -334,8 +343,32 @@
   <!-- 轻提示（toast） -->
   <div class="toast hidden" id="toast"></div>
 
-  <script src="renderer.js"></script>
+  <!-- ===== 界面脚本，按「先工具、再零件、最后装配」的顺序加载 ===== -->
+
+  <!-- 预览用的「假桥」：在浏览器里直接打开本文件时提供假数据。
+       正式软件里真桥已经先挂好，它会自动让位，什么都不做。 -->
+  <script src="dev-mock.js"></script>
+
+  <!-- 一、公用工具（不碰界面状态） -->
+  <script src="lib/dom.js"></script>
+  <script src="lib/format.js"></script>
+  <script src="lib/categories.js"></script>
+  <script src="lib/charts.js"></script>
+
+  <!-- 二、贪吃蛇规则（纯逻辑，页面要用到，必须先加载） -->
   <script src="snake-core.js"></script>
-  <script src="snake-game.js"></script>
+
+  <!-- 三、五个页面，每个文件管一页 -->
+  <script src="pages/overview.js"></script>
+  <script src="pages/bills.js"></script>
+  <script src="pages/stats.js"></script>
+  <script src="pages/settings.js"></script>
+  <script src="pages/game.js"></script>
+
+  <!-- 四、记一笔弹窗（三个页面都会用到） -->
+  <script src="features/add-record.js"></script>
+
+  <!-- 五、总调度：必须在所有页面之后，它负责把大家叫醒 -->
+  <script src="app.js"></script>
 </body>
 </html>

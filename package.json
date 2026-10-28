@@ -1,7 +1,7 @@
 {
   "name": "tiantian-jizhang",
   "productName": "天天记账",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "天天记账 —— 个人记账工具（Windows / Mac）",
   "main": "main.js",
   "scripts": {
@@ -31,10 +31,10 @@
     },
     "files": [
       "main.js",
-      "db.js",
+      "main/**/*",
+      "db/**/*",
       "preload.js",
       "score.js",
-      "start.js",
       "src/**/*"
     ],
     "npmRebuild": false,
